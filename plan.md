@@ -1,30 +1,25 @@
-# Dark Theme Implementation Plan
+# Plan: Add Operator Management to POS Identity Popup
 
-The goal is to transition the entire application to a sophisticated dark template while preserving all existing functionality.
+Add a button and management interface within the POS Identity popup to allow linking or unlinking operators to the terminal.
 
-## 1. Global Styles Update
-- Modify `src/index.css` to redefine the `:root` variables with a deep dark palette (Zinc-950/900 based).
-- Ensure high contrast for text and interactive elements.
-- Adjust chart color variables for dark mode compatibility.
+## 1. Context Update (`src/context/ManagementContext.tsx`)
+- Add `unlinkOperatorFromPos` function to handle removing bidirectional links between operators and POS terminals.
+- Update the `ManagementContextType` and `ManagementProvider`.
 
-## 2. Layout Enhancements
-- Update `DashboardLayout.tsx`:
-  - Main background to deep dark (`bg-background`).
-  - Sidebar and Header to card backgrounds (`bg-card`).
-  - Adjust shadows and borders for subtle depth on dark surfaces.
-  - Update search input and mobile menu backdrop for dark theme consistency.
+## 2. POS Identity Popup Enhancement (`src/components/management/pos/POSIdentityDialog.tsx`)
+- Add a new section "Assigned Personnel" to display the currently linked operator.
+- Implement an "Unlink" button (if an operator is assigned) and a "Link Operator" button.
+- Add props `onLink` and `onUnlink` to handle these actions from the parent component.
 
-## 3. Component Styling Refinement
-- **Overview Dashboard**:
-  - Update `StatCard` to use subtle tinted backgrounds instead of solid colors.
-  - Adjust Recharts colors (axes, grid lines, tooltips) for dark background.
-- **Management Modules**:
-  - **OperatorManager**: Refactor colored stat cards from solid backgrounds to dark backgrounds with colored top-borders and icons.
-  - **UserManager**: Apply similar stat card refinements.
-  - **CardManager**: Ensure table row hover states and status badges are optimized for dark theme.
-  - **ProjectManager**: Enhance card gradients and progress bar visibility.
-  - **POSManager**: Adjust live feed status and terminal card styles.
+## 3. Manager Integration (`src/components/management/POSManager.tsx`)
+- Implement `handleUnlink` to call the context's unlink function and show a toast notification.
+- Pass `handleUnlink` and a trigger for `setIsLinkOpen(true)` to the `POSIdentityDialog`.
 
-## 4. Final Polish
-- Verify all `sonner` notifications and `dialog` overlays match the new dark theme.
-- Ensure responsive mobile menus and popovers are correctly styled.
+## 4. Link Dialog Refinement (`src/components/management/LinkOperatorPOSDialog.tsx`)
+- Ensure the dialog correctly reflects that it's linking to the specific POS passed as `sourceItem`.
+
+## Verification
+- Verify that the POS Identity popup now shows the current operator.
+- Verify that clicking "Unlink" removes the operator from the POS and vice versa.
+- Verify that clicking "Link Operator" opens the assignment dialog.
+- Ensure all search and filter functionalities remain intact.

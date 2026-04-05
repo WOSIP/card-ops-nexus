@@ -20,17 +20,19 @@ export interface Project {
   totalCards: number;
   deployedCards: number;
   startDate: string;
-  bannerUrl: string;
 }
 
 export interface Operator {
   id: string;
   name: string;
   email: string;
+  phone: string;
   role: "Operator" | "Supervisor";
   status: "Active" | "Inactive";
   cardsDistributed: number;
   avatarUrl: string;
+  posId?: string;
+  posName?: string;
 }
 
 export interface User {
@@ -43,14 +45,22 @@ export interface User {
   joinedAt: string;
 }
 
-export interface POSDevice {
+export type POSStatus = "Online" | "Offline" | "Maintenance";
+
+export interface PosTerminal {
   id: string;
-  terminalId: string;
+  name: string;
   location: string;
-  status: "Online" | "Offline" | "Maintenance";
+  status: POSStatus;
+  serialNumber: string;
+  cardIdentity: string;
+  phoneNumber: string;
   lastPing: string;
   totalTransactions: number;
-  imageUrl: string;
+  operatorId?: string;
+  operatorName?: string;
+  projectId?: string;
+  projectName?: string;
 }
 
 export interface Transaction {
@@ -63,3 +73,5 @@ export interface Transaction {
 }
 
 export type ViewType = "dashboard" | "cards" | "projects" | "deployment" | "operators" | "users" | "roles" | "reporting" | "pos";
+
+export type UserRole = "Super Admin" | "Project Manager" | "Support Agent" | "Supervisor" | "Operator";

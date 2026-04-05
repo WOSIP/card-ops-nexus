@@ -22,6 +22,9 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  --success: oklch(0.7 0.15 160);
+  --warning: oklch(0.75 0.15 80);
+  --neutral-grey: oklch(0.6 0.01 250);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -49,9 +52,12 @@
   --border: oklch(0.2 0.03 250) !important;
   --input: oklch(0.2 0.03 250) !important;
   --ring: oklch(0.55 0.18 250) !important;
+  --success: oklch(0.7 0.15 160) !important;
+  --warning: oklch(0.75 0.15 80) !important;
+  --neutral-grey: oklch(0.6 0.01 250) !important;
   --chart-1: oklch(0.55 0.18 250) !important;
-  --chart-2: oklch(0.65 0.15 160) !important;
-  --chart-3: oklch(0.7 0.15 80) !important;
+  --chart-2: oklch(0.7 0.15 160) !important;
+  --chart-3: oklch(0.75 0.15 80) !important;
   --chart-4: oklch(0.5 0.2 300) !important;
   --chart-5: oklch(0.6 0.2 30) !important;
   --sidebar: oklch(0.12 0.02 250) !important;
@@ -62,4 +68,10 @@
   --sidebar-accent-foreground: oklch(0.98 0.01 250) !important;
   --sidebar-border: oklch(0.18 0.02 250) !important;
   --sidebar-ring: oklch(0.55 0.18 250) !important;
+}
+
+@theme inline {
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-neutral-grey: var(--neutral-grey);
 }

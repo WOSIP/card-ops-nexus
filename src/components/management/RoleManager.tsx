@@ -21,6 +21,13 @@ const roles = [
     color: "rose"
   },
   { 
+    name: "Supervisor", 
+    description: "Oversee operations, link operators to terminals, and manage deployments.",
+    users: 3,
+    permissions: ["Project Access", "Operator-POS Linking", "Operator Management", "Reporting"],
+    color: "amber"
+  },
+  { 
     name: "Project Manager", 
     description: "Manage specific projects, operators, and distribution workflows.",
     users: 5,
@@ -50,7 +57,7 @@ export const RoleManager = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {roles.map((role) => (
           <Card key={role.name} className="border border-border/50 shadow-md overflow-hidden relative bg-card">
             <div className={`h-1 w-full bg-${role.color}-500`} />
@@ -59,7 +66,7 @@ export const RoleManager = () => {
                 <CardTitle className="text-xl text-foreground">{role.name}</CardTitle>
                 <Badge variant="outline" className="border-border/50 bg-muted/50">{role.users} Users</Badge>
               </div>
-              <CardDescription className="text-muted-foreground">{role.description}</CardDescription>
+              <CardDescription className="text-muted-foreground line-clamp-2 h-10">{role.description}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -96,19 +103,21 @@ export const RoleManager = () => {
               <TableRow className="hover:bg-transparent border-border/50">
                 <TableHead className="w-[200px] text-muted-foreground">Action</TableHead>
                 <TableHead className="text-center text-muted-foreground">Super Admin</TableHead>
+                <TableHead className="text-center text-muted-foreground">Supervisor</TableHead>
                 <TableHead className="text-center text-muted-foreground">Project Manager</TableHead>
                 <TableHead className="text-center text-muted-foreground">Support Agent</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {[
-                { action: "Issue New Cards", roles: [true, true, false] },
-                { action: "Delete Projects", roles: [true, false, false] },
-                { action: "Manage Roles", roles: [true, false, false] },
-                { action: "View Financial Reports", roles: [true, true, false] },
-                { action: "Block/Unblock Cards", roles: [true, true, true] },
-                { action: "Edit User Profiles", roles: [true, true, false] },
-                { action: "Configure POS Terminals", roles: [true, false, false] },
+                { action: "Issue New Cards", roles: [true, true, true, false] },
+                { action: "Delete Projects", roles: [true, false, false, false] },
+                { action: "Manage Roles", roles: [true, false, false, false] },
+                { action: "Link Operator to POS", roles: [true, true, false, false] },
+                { action: "View Financial Reports", roles: [true, true, true, false] },
+                { action: "Block/Unblock Cards", roles: [true, true, true, true] },
+                { action: "Edit User Profiles", roles: [true, true, true, false] },
+                { action: "Configure POS Terminals", roles: [true, true, false, false] },
               ].map((row, i) => (
                 <TableRow key={i} className="border-border/50 hover:bg-muted/20">
                   <TableCell className="font-medium text-sm text-foreground">{row.action}</TableCell>

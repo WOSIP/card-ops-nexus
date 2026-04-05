@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ViewType } from "@/types";
+import { ViewType, UserRole } from "@/types";
 
 interface SidebarItemProps {
   icon: React.ElementType;
@@ -46,9 +46,17 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
   activeView: ViewType;
   setActiveView: (view: ViewType) => void;
+  userName?: string;
+  userRole?: UserRole;
 }
 
-export const DashboardLayout = ({ children, activeView, setActiveView }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ 
+  children, 
+  activeView, 
+  setActiveView,
+  userName = "Alex Johnson",
+  userRole = "Super Admin"
+}: DashboardLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -202,12 +210,12 @@ export const DashboardLayout = ({ children, activeView, setActiveView }: Dashboa
             </Button>
             <div className="flex items-center gap-4 pl-4 md:pl-6 border-l border-border/40">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-foreground">Alex Johnson</p>
-                <p className="text-xs font-medium text-muted-foreground/80">Super Admin</p>
+                <p className="text-sm font-bold text-foreground">{userName}</p>
+                <p className="text-xs font-medium text-muted-foreground/80">{userRole}</p>
               </div>
               <Avatar className="w-11 h-11 border-2 border-primary/20 ring-4 ring-primary/5">
-                <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" />
-                <AvatarFallback className="bg-muted text-foreground font-bold">AJ</AvatarFallback>
+                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}`} />
+                <AvatarFallback className="bg-muted text-foreground font-bold">{userName.charAt(0)}</AvatarFallback>
               </Avatar>
             </div>
           </div>

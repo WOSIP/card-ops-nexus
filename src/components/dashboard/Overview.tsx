@@ -34,20 +34,20 @@ const data = [
 ];
 
 const pieData = [
-  { name: "Active", value: 450, color: "var(--primary)" },
-  { name: "Inactive", value: 120, color: "var(--muted-foreground)" },
-  { name: "Blocked", value: 30, color: "#f43f5e" },
-  { name: "Pending", value: 200, color: "#f59e0b" },
+  { name: "Active", value: 450, color: "var(--success)" },
+  { name: "Inactive", value: 120, color: "var(--neutral-grey)" },
+  { name: "Blocked", value: 30, color: "var(--destructive)" },
+  { name: "Pending", value: 200, color: "var(--warning)" },
 ];
 
-const StatCard = ({ title, value, icon: Icon, trend, trendValue }: any) => (
-  <Card className="overflow-hidden border border-border/40 shadow-xl bg-card/50 backdrop-blur-sm group hover:border-primary/30 transition-all duration-300">
+const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = "primary" }: any) => (
+  <Card className={`overflow-hidden border border-border/40 shadow-xl bg-card/50 backdrop-blur-sm group hover:border-${color}/30 transition-all duration-300`}>
     <CardContent className="p-7">
       <div className="flex justify-between items-start">
-        <div className={`p-3.5 rounded-2xl bg-primary/10 text-primary group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-300 shadow-inner`}>
+        <div className={`p-3.5 rounded-2xl bg-${color}/10 text-${color} group-hover:scale-110 group-hover:bg-${color}/20 transition-all duration-300 shadow-inner`}>
           <Icon size={26} />
         </div>
-        <Badge variant="outline" className={`flex items-center gap-1.5 border-none px-2.5 py-1 ${trend === 'up' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'} font-bold text-xs`}>
+        <Badge variant="outline" className={`flex items-center gap-1.5 border-none px-2.5 py-1 ${trend === 'up' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'} font-bold text-xs`}>
           {trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
           {trendValue}
         </Badge>
@@ -57,7 +57,7 @@ const StatCard = ({ title, value, icon: Icon, trend, trendValue }: any) => (
         <h3 className="text-4xl font-extrabold mt-1.5 tracking-tighter text-foreground">{value}</h3>
       </div>
     </CardContent>
-    <div className={`h-1.5 w-full bg-gradient-to-r from-transparent via-primary/40 to-transparent opacity-30 group-hover:opacity-100 transition-opacity`} />
+    <div className={`h-1.5 w-full bg-gradient-to-r from-transparent via-${color}/40 to-transparent opacity-30 group-hover:opacity-100 transition-opacity`} />
   </Card>
 );
 
@@ -82,28 +82,32 @@ export const Overview = () => {
           value="12,482" 
           icon={CreditCard} 
           trend="up" 
-          trendValue="+12.4%" 
+          trendValue="+12.4%"
+          color="primary"
         />
         <StatCard 
           title="Active Users" 
           value="8,943" 
           icon={Users} 
           trend="up" 
-          trendValue="+5.2%" 
+          trendValue="+5.2%"
+          color="success"
         />
         <StatCard 
           title="Deployments" 
           value="1,205" 
           icon={CheckCircle2} 
           trend="down" 
-          trendValue="-2.4%" 
+          trendValue="-2.4%"
+          color="neutral-grey"
         />
         <StatCard 
           title="Alerts" 
           value="432" 
           icon={AlertCircle} 
           trend="up" 
-          trendValue="+1.8%" 
+          trendValue="+1.8%"
+          color="warning"
         />
       </div>
 
