@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   Bell,
-  Search
+  Search,
+  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -26,9 +27,21 @@ interface SidebarItemProps {
   active: boolean;
   onClick: () => void;
   collapsed?: boolean;
+  hasSubItems?: boolean;
+  isExpanded?: boolean;
+  onToggle?: () => void;
 }
 
-const SidebarItem = ({ icon: Icon, label, active, onClick, collapsed }: SidebarItemProps) => (
+const SidebarItem = ({ 
+  icon: Icon, 
+  label, 
+  active, 
+  onClick, 
+  collapsed,
+  hasSubItems,
+  isExpanded,
+  onToggle
+}: SidebarItemProps) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
@@ -38,9 +51,52 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, collapsed }: SidebarI
     }`}
   >
     <Icon size={20} className={active ? "scale-110 transition-transform" : "opacity-70"} />
-    {!collapsed && <span className="font-semibold whitespace-nowrap text-sm">{label}</span>}
+    {!collapsed && (
+      <>
+        <span className="font-semibold whitespace-nowrap text-sm flex-1 text-left">{label}</span>
+        {hasSubItems && (
+          <motion.div
+            animate={{ rotate: isExpanded ? 180 : 0 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle?.();
+            }}
+            className="p-1 hover:bg-white/10 rounded-md transition-colors"
+          >
+            <ChevronDown size={14} />
+          </motion.div>
+        )}
+      </>
+    )}
   </button>
 );
+
+const SubItem = ({ 
+  label, 
+  active, 
+  onClick, 
+  collapsed 
+}: { 
+  label: string; 
+  active: boolean; 
+  onClick: () => void; 
+  collapsed?: boolean;
+}) => {
+  if (collapsed) return null;
+  return (
+    <button
+      onClick={onClick}
+      className={`w-[calc(100%-1.5rem)] ml-6 flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-300 ${
+        active 
+          ? "bg-primary/15 text-primary font-bold shadow-sm" 
+          : "text-muted-foreground/70 hover:bg-white/5 hover:text-foreground"
+      }`}
+    >
+      <div className={`w-1.5 h-1.5 rounded-full ${active ? "bg-primary" : "bg-muted-foreground/30"}`} />
+      <span className="font-semibold whitespace-nowrap text-xs">{label}</span>
+    </button>
+  );
+};
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -59,18 +115,92 @@ export const DashboardLayout = ({
 }: DashboardLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["dashboard", "pos"]);
 
-  const menuItems: { id: ViewType; label: string; icon: any }[] = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  const toggleMenu = (id: string) => {
+    setExpandedMenus(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const menuItems: { id: ViewType; label: string; icon: any; subItems?: { id: ViewType; label: string }[] }[] = [
+    { 
+      id: "dashboard", 
+      label: "Dashboard", 
+      icon: LayoutDashboard,
+      subItems: [
+        { id: "projects", label: "Project Management" }
+      ]
+    },
     { id: "cards", label: "Card Management", icon: CreditCard },
-    { id: "projects", label: "Project Management", icon: Briefcase },
-    { id: "deployment", label: "Card Deployment", icon: Truck },
-    { id: "operators", label: "Operator Management", icon: Users },
     { id: "users", label: "User Management", icon: Users },
+    { id: "deployment", label: "Card Deployment", icon: Truck },
+    { 
+      id: "pos", 
+      label: "POS Management", 
+      icon: Monitor,
+      subItems: [
+        { id: "operators", label: "Operator Management" }
+      ]
+    },
     { id: "roles", label: "Role Management", icon: ShieldCheck },
     { id: "reporting", label: "Reporting", icon: BarChart3 },
-    { id: "pos", label: "POS Management", icon: Monitor },
   ];
+
+  const renderMenuItems = (items: typeof menuItems, isMobile = false) => (
+    items.map((item) => {
+      const isExpanded = expandedMenus.includes(item.id);
+      const isParentActive = activeView === item.id;
+      const isSubItemActive = item.subItems?.some(sub => activeView === sub.id);
+      const isActive = isParentActive || isSubItemActive;
+
+      return (
+        <div key={item.id} className="space-y-1">
+          <SidebarItem
+            icon={item.icon}
+            label={item.label}
+            active={isActive}
+            onClick={() => {
+              if (item.subItems && !collapsed) {
+                if (!isExpanded) toggleMenu(item.id);
+              }
+              setActiveView(item.id);
+              if (isMobile && !item.subItems) setMobileMenuOpen(false);
+            }}
+            collapsed={collapsed}
+            hasSubItems={!!item.subItems}
+            isExpanded={isExpanded}
+            onToggle={() => toggleMenu(item.id)}
+          />
+          
+          <AnimatePresence initial={false}>
+            {!collapsed && item.subItems && isExpanded && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="overflow-hidden space-y-1"
+              >
+                {item.subItems.map(subItem => (
+                  <SubItem
+                    key={subItem.id}
+                    label={subItem.label}
+                    active={activeView === subItem.id}
+                    onClick={() => {
+                      setActiveView(subItem.id);
+                      if (isMobile) setMobileMenuOpen(false);
+                    }}
+                    collapsed={collapsed}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    })
+  );
 
   return (
     <div className="flex h-screen bg-background overflow-hidden text-foreground">
@@ -101,16 +231,7 @@ export const DashboardLayout = ({
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto scrollbar-none">
-          {menuItems.map((item) => (
-            <SidebarItem
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              active={activeView === item.id}
-              onClick={() => setActiveView(item.id)}
-              collapsed={collapsed}
-            />
-          ))}
+          {renderMenuItems(menuItems)}
         </nav>
 
         <div className="p-6 border-t border-border/40 space-y-4">
@@ -121,7 +242,7 @@ export const DashboardLayout = ({
           <Button 
             variant="outline" 
             size="sm" 
-            className="w-full bg-white/5 border-border/40 hover:bg-white/10 text-muted-foreground hover:text-foreground"
+            className="w-full bg-white/5 border-border/40 hover:bg-white/10 text-muted-foreground hover:text-foreground h-11 rounded-xl"
             onClick={() => setCollapsed(!collapsed)}
           >
             {collapsed ? "Expand" : "Collapse"}
@@ -163,19 +284,8 @@ export const DashboardLayout = ({
                 <X size={24} />
               </Button>
             </div>
-            <nav className="p-6 space-y-2">
-              {menuItems.map((item) => (
-                <SidebarItem
-                  key={item.id}
-                  icon={item.icon}
-                  label={item.label}
-                  active={activeView === item.id}
-                  onClick={() => {
-                    setActiveView(item.id);
-                    setMobileMenuOpen(false);
-                  }}
-                />
-              ))}
+            <nav className="p-6 space-y-2 overflow-y-auto max-h-[calc(100vh-120px)]">
+              {renderMenuItems(menuItems, true)}
             </nav>
           </motion.aside>
         )}

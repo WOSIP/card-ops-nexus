@@ -63,6 +63,7 @@ import { EditPOSDialog } from "./pos/EditPOSDialog";
 import { LinkOperatorPOSDialog } from "./LinkOperatorPOSDialog";
 import { POSIdentityDialog } from "./pos/POSIdentityDialog";
 import { useManagement } from "@/context/ManagementContext";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const mockTransactions: Transaction[] = [
   { id: "tx1", cardId: "4532-****-9012", amount: 45.00, timestamp: "2024-03-20 14:22", location: "Central Mall", status: "Success" },
@@ -81,8 +82,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
     terminals, 
     operators, 
     projects,
-    linkOperatorToPos, 
-    unlinkOperatorFromPos,
+    linkOperatorsToPos, 
     updateTerminal, 
     createTerminal, 
     deleteTerminal 
@@ -111,20 +111,23 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
     // Text Search
     const term = searchTerm.toLowerCase().trim();
     if (term) {
-      result = result.filter(t => 
-        t.name.toLowerCase().includes(term) ||
-        t.serialNumber.toLowerCase().includes(term) ||
-        t.cardIdentity.toLowerCase().includes(term) ||
-        t.phoneNumber.toLowerCase().includes(term) ||
-        t.id.toLowerCase().includes(term) ||
-        t.location.toLowerCase().includes(term) ||
-        t.projectName?.toLowerCase().includes(term) ||
-        t.operatorName?.toLowerCase().includes(term)
-      );
+      result = result.filter(t => {
+        const opNames = (t.operatorIds || []).map(id => operators.find(o => o.id === id)?.name || "").join(" ");
+        return (
+          t.name.toLowerCase().includes(term) ||
+          t.serialNumber.toLowerCase().includes(term) ||
+          t.cardIdentity.toLowerCase().includes(term) ||
+          t.phoneNumber.toLowerCase().includes(term) ||
+          t.id.toLowerCase().includes(term) ||
+          t.location.toLowerCase().includes(term) ||
+          t.projectName?.toLowerCase().includes(term) ||
+          opNames.toLowerCase().includes(term)
+        );
+      });
     }
 
     return result;
-  }, [terminals, searchTerm, projectFilter]);
+  }, [terminals, searchTerm, projectFilter, operators]);
 
   // Handle selected POS sync with state (for the identity dialog)
   const currentSelectedPOS = useMemo(() => {
@@ -158,26 +161,16 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
     toast.success(`Terminal ${deleted?.serialNumber} removed from system`);
   };
 
-  const handleLink = (posId: string, operatorId: string) => {
-    const operator = operators.find(o => o.id === operatorId);
-    if (!operator) return;
-
-    linkOperatorToPos(operatorId, posId);
+  const handleLink = (posId: string, operatorIds: string[]) => {
+    // When linking from POS, we want to REPLACE the current set with the new selection
+    linkOperatorsToPos(operatorIds, posId, true);
     
     setIsLinkOpen(false);
     // Keep selectedPOS if identity dialog is open
     if (!isIdentityOpen) {
       setSelectedPOS(null);
     }
-    toast.success(`Terminal linked to operator: ${operator.name}`);
-  };
-
-  const handleUnlink = (posId: string) => {
-    const terminal = terminals.find(t => t.id === posId);
-    const opName = terminal?.operatorName;
-    
-    unlinkOperatorFromPos(posId);
-    toast.success(`Operator ${opName || ""} unlinked from terminal`);
+    toast.success(`${operatorIds.length} operator(s) linked to terminal`);
   };
 
   const openEdit = (pos: PosTerminal) => {
@@ -341,7 +334,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
                     <TableHead className="text-muted-foreground font-black uppercase text-[10px] tracking-widest pl-8">Device Identity</TableHead>
                     <TableHead className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Location</TableHead>
                     <TableHead className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">ID & Phone Identification</TableHead>
-                    <TableHead className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Operator / Project</TableHead>
+                    <TableHead className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Personnel / Project</TableHead>
                     <TableHead className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Last Activity</TableHead>
                     <TableHead className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Status</TableHead>
                     <TableHead className="text-right text-muted-foreground font-black uppercase text-[10px] tracking-widest pr-8">Actions</TableHead>
@@ -349,121 +342,148 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
                 </TableHeader>
                 <TableBody>
                   <AnimatePresence mode="popLayout">
-                    {filteredTerminals.map((pos) => (
-                      <motion.tr
-                        layout
-                        key={pos.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="group cursor-pointer hover:bg-white/[0.03] border-b border-border/10 transition-colors"
-                        onClick={() => openIdentity(pos)}
-                      >
-                        <TableCell className="pl-8 py-5">
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2.5 rounded-xl bg-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'}/10 text-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'} shadow-inner border border-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'}/20`}>
-                              <Smartphone size={18} strokeWidth={2.5} />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="font-black text-foreground text-sm tracking-tight leading-none mb-1 group-hover:text-primary transition-colors">{pos.name}</span>
-                              <div className="flex items-center gap-1.5">
-                                <Zap size={10} className="text-warning fill-warning" />
-                                <span className="font-mono text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{pos.serialNumber}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-muted-foreground font-bold text-sm">
-                            <MapPin size={14} className="text-primary/60" />
-                            <span className="truncate max-w-[150px]">{pos.location}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1.5">
-                             <div className="flex items-center gap-1.5">
-                               <CreditCard size={12} className="text-primary/60" />
-                               <span className="font-mono text-[11px] font-black text-foreground tracking-widest uppercase">{pos.cardIdentity}</span>
-                             </div>
-                             <div className="flex items-center gap-1.5">
-                               <Phone size={12} className="text-success" />
-                               <span className="text-[11px] font-black text-foreground uppercase tracking-widest">{pos.phoneNumber}</span>
-                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1.5">
-                            {pos.operatorName ? (
-                              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 w-fit">
-                                <Users size={10} strokeWidth={2.5} />
-                                {pos.operatorName}
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-muted-foreground/60 bg-muted/20 px-2.5 py-1 rounded-lg w-fit">
-                                <AlertTriangle size={10} />
-                                Unassigned
-                              </div>
-                            )}
-                            {pos.projectName && (
-                              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-success bg-success/10 px-2.5 py-1 rounded-lg border border-success/20 w-fit">
-                                <FolderKanban size={10} strokeWidth={2.5} />
-                                {pos.projectName}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                           <div className="flex flex-col">
-                             <span className="text-xs font-bold text-foreground">{pos.lastPing}</span>
-                             <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">Heartbeat</span>
-                           </div>
-                        </TableCell>
-                        <TableCell>
-                           <Badge className={`px-3 py-1 rounded-full font-black text-[10px] tracking-widest ${
-                              pos.status === 'Online' 
-                                ? 'bg-success/10 text-success border-success/30' 
-                                : pos.status === 'Offline'
-                                  ? 'bg-destructive/10 text-destructive border-destructive/30'
-                                  : 'bg-warning/10 text-warning border-warning/30'
-                            }`}>
-                              <span className="mr-1.5">●</span>
-                              {pos.status.toUpperCase()}
-                            </Badge>
-                        </TableCell>
-                        <TableCell className="text-right pr-8" onClick={(e) => e.stopPropagation()}>
-                           <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all">
-                                  <MoreVertical size={18} />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-56 bg-card/95 backdrop-blur-xl border-border/40 p-2 rounded-2xl shadow-2xl">
-                                <DropdownMenuItem onClick={() => openEdit(pos)} className="gap-3 cursor-pointer rounded-xl font-bold py-2.5">
-                                  <Edit size={16} className="text-primary" /> Edit Terminal
-                                </DropdownMenuItem>
-                                
-                                <DropdownMenuItem onClick={() => openIdentity(pos)} className="gap-3 cursor-pointer rounded-xl font-bold py-2.5">
-                                  <Eye size={16} className="text-primary" /> View Details
-                                </DropdownMenuItem>
+                    {filteredTerminals.map((pos) => {
+                      const assignedCount = pos.operatorIds?.length || 0;
+                      const firstOperator = pos.operatorIds && pos.operatorIds.length > 0 
+                        ? operators.find(o => o.id === pos.operatorIds![0]) 
+                        : null;
 
-                                {canLink && (
-                                  <DropdownMenuItem onClick={() => openLink(pos)} className="gap-3 cursor-pointer rounded-xl text-primary font-bold py-2.5">
-                                    <UserCheck size={16} /> Assign Operator
+                      return (
+                        <motion.tr
+                          layout
+                          key={pos.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="group cursor-pointer hover:bg-white/[0.03] border-b border-border/10 transition-colors"
+                          onClick={() => openIdentity(pos)}
+                        >
+                          <TableCell className="pl-8 py-5">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2.5 rounded-xl bg-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'}/10 text-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'} shadow-inner border border-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'}/20`}>
+                                <Smartphone size={18} strokeWidth={2.5} />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-black text-foreground text-sm tracking-tight leading-none mb-1 group-hover:text-primary transition-colors">{pos.name}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <Zap size={10} className="text-warning fill-warning" />
+                                  <span className="font-mono text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{pos.serialNumber}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-muted-foreground font-bold text-sm">
+                              <MapPin size={14} className="text-primary/60" />
+                              <span className="truncate max-w-[150px]">{pos.location}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1.5">
+                               <div className="flex items-center gap-1.5">
+                                 <CreditCard size={12} className="text-primary/60" />
+                                 <span className="font-mono text-[11px] font-black text-foreground tracking-widest uppercase">{pos.cardIdentity}</span>
+                               </div>
+                               <div className="flex items-center gap-1.5">
+                                 <Phone size={12} className="text-success" />
+                                 <span className="text-[11px] font-black text-foreground uppercase tracking-widest">{pos.phoneNumber}</span>
+                               </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1.5">
+                              {assignedCount > 0 ? (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 w-fit">
+                                        <Users size={10} strokeWidth={2.5} />
+                                        {assignedCount === 1 ? firstOperator?.name : `${assignedCount} Operators`}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-card/95 backdrop-blur-xl border-border/40 p-3 rounded-xl shadow-2xl">
+                                      <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Assigned Personnel</p>
+                                      <ul className="space-y-1.5">
+                                        {pos.operatorIds?.map(id => {
+                                          const op = operators.find(o => o.id === id);
+                                          return op ? (
+                                            <li key={id} className="flex items-center gap-2 text-xs font-bold text-foreground">
+                                              <div className="w-1 h-1 rounded-full bg-primary" />
+                                              {op.name}
+                                            </li>
+                                          ) : null;
+                                        })}
+                                      </ul>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ) : (
+                                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-muted-foreground/60 bg-muted/20 px-2.5 py-1 rounded-lg w-fit">
+                                  <AlertTriangle size={10} />
+                                  Unassigned
+                                </div>
+                              )}
+                              {pos.projectName && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-success bg-success/10 px-2.5 py-1 rounded-lg border border-success/20 w-fit">
+                                  <FolderKanban size={10} strokeWidth={2.5} />
+                                  {pos.projectName}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                             <div className="flex flex-col">
+                               <span className="text-xs font-bold text-foreground">{pos.lastPing}</span>
+                               <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">Heartbeat</span>
+                             </div>
+                          </TableCell>
+                          <TableCell>
+                             <Badge className={`px-3 py-1 rounded-full font-black text-[10px] tracking-widest ${
+                                pos.status === 'Online' 
+                                  ? 'bg-success/10 text-success border-success/30' 
+                                  : pos.status === 'Offline'
+                                    ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                    : 'bg-warning/10 text-warning border-warning/30'
+                              }`}>
+                                <span className="mr-1.5">●</span>
+                                {pos.status.toUpperCase()}
+                              </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-8" onClick={(e) => e.stopPropagation()}>
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all">
+                                    <MoreVertical size={18} />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56 bg-card/95 backdrop-blur-xl border-border/40 p-2 rounded-2xl shadow-2xl">
+                                  <DropdownMenuItem onClick={() => openEdit(pos)} className="gap-3 cursor-pointer rounded-xl font-bold py-2.5">
+                                    <Edit size={16} className="text-primary" /> Edit Terminal
                                   </DropdownMenuItem>
-                                )}
+                                  
+                                  <DropdownMenuItem onClick={() => openIdentity(pos)} className="gap-3 cursor-pointer rounded-xl font-bold py-2.5">
+                                    <Eye size={16} className="text-primary" /> View Details
+                                  </DropdownMenuItem>
 
-                                <DropdownMenuItem onClick={() => { setSelectedPOS(pos); setIsTxOpen(true); }} className="gap-3 cursor-pointer rounded-xl font-bold py-2.5">
-                                  <History size={16} className="text-success" /> Service Logs
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator className="bg-border/40 my-1" />
-                                <DropdownMenuItem onClick={() => handleDelete(pos.id)} className="gap-3 text-destructive font-bold cursor-pointer rounded-xl py-2.5 focus:bg-destructive/10">
-                                  <Trash2 size={16} /> Decommission
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                      </motion.tr>
-                    ))}
+                                  {canLink && (
+                                    <DropdownMenuItem onClick={() => openLink(pos)} className="gap-3 cursor-pointer rounded-xl text-primary font-bold py-2.5">
+                                      <UserCheck size={16} /> Assign Operators
+                                    </DropdownMenuItem>
+                                  )}
+
+                                  <DropdownMenuItem onClick={() => { setSelectedPOS(pos); setIsTxOpen(true); }} className="gap-3 cursor-pointer rounded-xl font-bold py-2.5">
+                                    <History size={16} className="text-success" /> Service Logs
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-border/40 my-1" />
+                                  <DropdownMenuItem onClick={() => handleDelete(pos.id)} className="gap-3 text-destructive font-bold cursor-pointer rounded-xl py-2.5 focus:bg-destructive/10">
+                                    <Trash2 size={16} /> Decommission
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                          </TableCell>
+                        </motion.tr>
+                      );
+                    })}
                   </AnimatePresence>
                 </TableBody>
               </Table>
@@ -612,7 +632,6 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
         }}
         pos={currentSelectedPOS}
         onLink={openLink}
-        onUnlink={handleUnlink}
       />
     </div>
   );

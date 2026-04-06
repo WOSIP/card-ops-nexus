@@ -5,8 +5,8 @@ interface ManagementContextType {
   operators: Operator[];
   terminals: PosTerminal[];
   projects: Project[];
-  linkOperatorToPos: (operatorId: string, posId: string) => void;
-  unlinkOperatorFromPos: (posId: string) => void;
+  linkOperatorsToPos: (operatorIds: string[], posId: string, replace?: boolean) => void;
+  unlinkOperatorFromPos: (operatorId: string, posId: string) => void;
   updateOperator: (operator: Operator) => void;
   createOperator: (operator: Operator) => void;
   deleteOperator: (id: string) => void;
@@ -41,7 +41,9 @@ const initialMockOperators: Operator[] = [
     role: "Operator",
     status: "Active",
     cardsDistributed: 842,
-    avatarUrl: "https://storage.googleapis.com/dala-prod-public-storage/generated-images/9bebb232-52b9-43a5-91c2-4eec251cb773/operator-2-ec7c7d6e-1775420727065.webp"
+    avatarUrl: "https://storage.googleapis.com/dala-prod-public-storage/generated-images/9bebb232-52b9-43a5-91c2-4eec251cb773/operator-2-ec7c7d6e-1775420727065.webp",
+    posId: "pos1",
+    posName: "Main Mall Terminal"
   },
   {
     id: "op3",
@@ -106,8 +108,7 @@ const initialPOS: PosTerminal[] = [
     status: "Online", 
     lastPing: "Just now", 
     totalTransactions: 1242,
-    operatorId: "op1",
-    operatorName: "Elena Rodriguez",
+    operatorIds: ["op1", "op2"],
     projectId: "p1",
     projectName: "Global Rewards Program"
   },
@@ -121,6 +122,7 @@ const initialPOS: PosTerminal[] = [
     status: "Online", 
     lastPing: "2m ago", 
     totalTransactions: 8432,
+    operatorIds: [],
     projectId: "p2",
     projectName: "Eco-Transit System"
   },
@@ -134,6 +136,7 @@ const initialPOS: PosTerminal[] = [
     status: "Offline", 
     lastPing: "4h ago", 
     totalTransactions: 2105,
+    operatorIds: [],
     projectId: "p1",
     projectName: "Global Rewards Program"
   },
@@ -147,6 +150,7 @@ const initialPOS: PosTerminal[] = [
     status: "Maintenance", 
     lastPing: "1d ago", 
     totalTransactions: 450,
+    operatorIds: [],
   },
 ];
 
@@ -155,37 +159,56 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
   const [terminals, setTerminals] = useState<PosTerminal[]>(initialPOS);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
 
-  const linkOperatorToPos = (operatorId: string, posId: string) => {
-    const operator = operators.find(o => o.id === operatorId);
-    const terminal = terminals.find(t => t.id === posId);
-
-    if (!operator || !terminal) return;
-
-    // Bidirectional update
-    setOperators(prev => prev.map(op => 
-      op.id === operatorId ? { ...op, posId, posName: terminal.name } : op
-    ));
-
-    setTerminals(prev => prev.map(t => 
-      t.id === posId ? { ...t, operatorId, operatorName: operator.name } : t
-    ));
-  };
-
-  const unlinkOperatorFromPos = (posId: string) => {
+  const linkOperatorsToPos = (operatorIds: string[], posId: string, replace: boolean = false) => {
     const terminal = terminals.find(t => t.id === posId);
     if (!terminal) return;
 
-    const opId = terminal.operatorId;
+    // Determine the final list of operator IDs for this terminal
+    let finalOperatorIds: string[];
+    if (replace) {
+      finalOperatorIds = operatorIds;
+    } else {
+      finalOperatorIds = Array.from(new Set([...(terminal.operatorIds || []), ...operatorIds]));
+    }
 
+    // Update ALL terminals to ensure these operators are ONLY assigned to this POS
+    setTerminals(prev => prev.map(t => {
+      if (t.id === posId) {
+        return { ...t, operatorIds: finalOperatorIds };
+      } else {
+        // Remove these operator IDs from any other terminal they might have been assigned to
+        return { 
+          ...t, 
+          operatorIds: (t.operatorIds || []).filter(id => !operatorIds.includes(id)) 
+        };
+      }
+    }));
+
+    // Update operators status
+    setOperators(prev => prev.map(op => {
+      // 1. If operator is in the new list for this POS, update their reference
+      if (finalOperatorIds.includes(op.id)) {
+        return { ...op, posId, posName: terminal.name };
+      }
+      // 2. If operator was assigned to this POS but IS NOT in the new list, clear their reference
+      if (op.posId === posId && !finalOperatorIds.includes(op.id)) {
+        return { ...op, posId: undefined, posName: undefined };
+      }
+      // 3. Keep as is
+      return op;
+    }));
+  };
+
+  const unlinkOperatorFromPos = (operatorId: string, posId: string) => {
     setTerminals(prev => prev.map(t => 
-      t.id === posId ? { ...t, operatorId: undefined, operatorName: undefined } : t
+      t.id === posId 
+        ? { ...t, operatorIds: (t.operatorIds || []).filter(id => id !== operatorId) } 
+        : t
     ));
 
-    if (opId) {
-      setOperators(prev => prev.map(op => 
-        op.id === opId ? { ...op, posId: undefined, posName: undefined } : op
-      ));
-    }
+    setOperators(prev => prev.map(op => 
+      op.id === operatorId ? { ...op, posId: undefined, posName: undefined } : op
+    ));
   };
 
   const updateOperator = (operator: Operator) => {
@@ -198,6 +221,11 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteOperator = (id: string) => {
     setOperators(prev => prev.filter(o => o.id !== id));
+    // Remove operator from all terminals
+    setTerminals(prev => prev.map(t => ({
+      ...t,
+      operatorIds: (t.operatorIds || []).filter(opId => opId !== id)
+    })));
   };
 
   const updateTerminal = (terminal: PosTerminal) => {
@@ -210,6 +238,10 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteTerminal = (id: string) => {
     setTerminals(prev => prev.filter(t => t.id !== id));
+    // Clear POS reference from operators
+    setOperators(prev => prev.map(op => 
+      op.posId === id ? { ...op, posId: undefined, posName: undefined } : op
+    ));
   };
 
   const updateProject = (project: Project) => {
@@ -237,7 +269,7 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
       operators,
       terminals,
       projects,
-      linkOperatorToPos,
+      linkOperatorsToPos,
       unlinkOperatorFromPos,
       updateOperator,
       createOperator,

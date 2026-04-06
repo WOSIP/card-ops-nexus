@@ -57,8 +57,7 @@ export interface PosTerminal {
   phoneNumber: string;
   lastPing: string;
   totalTransactions: number;
-  operatorId?: string;
-  operatorName?: string;
+  operatorIds?: string[];
   projectId?: string;
   projectName?: string;
 }

@@ -23,21 +23,28 @@ import {
   Phone,
   Users,
   UserPlus,
-  UserMinus
+  UserMinus,
+  Mail
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useManagement } from "@/context/ManagementContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface POSIdentityDialogProps {
   isOpen: boolean;
   onClose: () => void;
   pos: PosTerminal | null;
   onLink?: (pos: PosTerminal) => void;
-  onUnlink?: (posId: string) => void;
 }
 
-export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink, onUnlink }: POSIdentityDialogProps) => {
+export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink }: POSIdentityDialogProps) => {
+  const { operators, unlinkOperatorFromPos } = useManagement();
+  
   if (!pos) return null;
+
+  const assignedOperators = operators.filter(op => pos.operatorIds?.includes(op.id));
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -144,7 +151,7 @@ export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink, onUnlink }: PO
           {/* Location, Details & Operators */}
           <div className="space-y-4">
             <div className="flex items-center gap-4 p-5 rounded-3xl bg-white/5 border border-border/40 shadow-inner group transition-colors hover:border-primary/20">
-              <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+              <div className="p-3 rounded-2xl bg-primary/10 text-primary border border-primary/20">
                 <MapPin className="w-6 h-6" />
               </div>
               <div className="flex-grow">
@@ -154,7 +161,7 @@ export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink, onUnlink }: PO
             </div>
 
             <div className="flex items-center gap-4 p-5 rounded-3xl bg-white/5 border border-border/40 shadow-inner group transition-colors hover:border-success/20">
-              <div className="p-3 rounded-2xl bg-success/10 text-success">
+              <div className="p-3 rounded-2xl bg-success/10 text-success border border-success/20">
                 <Settings className="w-6 h-6" />
               </div>
               <div className="flex-grow">
@@ -163,37 +170,64 @@ export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink, onUnlink }: PO
               </div>
             </div>
 
-            <div className="flex items-center gap-4 p-5 rounded-3xl bg-white/5 border border-border/40 shadow-inner group transition-colors hover:border-blue-500/20">
-              <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-500">
-                <Users className="w-6 h-6" />
+            <div className="p-6 rounded-[2rem] bg-white/5 border border-border/40 shadow-inner space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Assigned Personnel</p>
+                    <p className="text-lg font-bold text-foreground">{assignedOperators.length} Operators</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => onLink?.(pos)}
+                  className="rounded-xl border-primary/30 text-primary hover:bg-primary/10 font-bold"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Assign
+                </Button>
               </div>
-              <div className="flex-grow">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Assigned Personnel</p>
-                <p className="text-lg font-bold text-foreground">{pos.operatorName || "Unassigned"}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {pos.operatorId ? (
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors"
-                    onClick={() => onUnlink?.(pos.id)}
-                    title="Unlink Operator"
-                  >
-                    <UserMinus className="w-5 h-5" />
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 rounded-xl text-primary hover:bg-primary/10 hover:text-primary transition-colors"
-                    onClick={() => onLink?.(pos)}
-                    title="Assign Operator"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                  </Button>
-                )}
-              </div>
+
+              {assignedOperators.length > 0 ? (
+                <div className="space-y-3 pt-2">
+                  {assignedOperators.map((op) => (
+                    <div key={op.id} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-border/20 group hover:border-primary/30 transition-all">
+                      <Avatar className="h-10 w-10 border border-border/40">
+                        <AvatarImage src={op.avatarUrl} />
+                        <AvatarFallback className="font-bold text-xs">{op.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-grow">
+                        <p className="text-sm font-bold text-foreground">{op.name}</p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-black uppercase tracking-tighter">
+                            <Mail className="w-3 h-3" /> {op.email}
+                          </span>
+                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-black uppercase tracking-tighter">
+                            <Phone className="w-3 h-3" /> {op.phone}
+                          </span>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                        onClick={() => unlinkOperatorFromPos(op.id, pos.id)}
+                      >
+                        <UserMinus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center bg-white/5 rounded-2xl border border-dashed border-border/40">
+                  <Users className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">No personnel assigned</p>
+                </div>
+              )}
             </div>
           </div>
 

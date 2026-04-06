@@ -58,7 +58,7 @@ export const OperatorManager = ({ userRole = "Super Admin" }: OperatorManagerPro
   const { 
     operators, 
     terminals, 
-    linkOperatorToPos, 
+    linkOperatorsToPos, 
     updateOperator, 
     createOperator, 
     deleteOperator 
@@ -120,11 +120,13 @@ export const OperatorManager = ({ userRole = "Super Admin" }: OperatorManagerPro
     toast.success("Operator removed from system");
   };
 
-  const handleLink = (operatorId: string, posId: string) => {
+  const handleLink = (operatorId: string, posIds: string[]) => {
+    if (posIds.length === 0) return;
+    const posId = posIds[0];
     const pos = terminals.find(p => p.id === posId);
     if (!pos) return;
 
-    linkOperatorToPos(operatorId, posId);
+    linkOperatorsToPos([operatorId], posId);
     
     setIsLinkOpen(false);
     setSelectedOperator(null);
@@ -195,7 +197,7 @@ export const OperatorManager = ({ userRole = "Super Admin" }: OperatorManagerPro
                   </div>
                 </div>
                 <div className="mt-5 flex items-center gap-2 text-xs font-bold text-muted-foreground/80 bg-white/[0.03] w-fit px-3 py-1.5 rounded-lg border border-white/5">
-                  <span style={{ color: stat.color }}>•</span>
+                  <span style={{ color: stat.color }}>●</span>
                   <span>{stat.desc}</span>
                 </div>
               </CardContent>
@@ -263,7 +265,7 @@ export const OperatorManager = ({ userRole = "Super Admin" }: OperatorManagerPro
                                <span>{op.email}</span>
                                {op.phone && (
                                  <>
-                                   <span className="opacity-30">•</span>
+                                   <span className="opacity-30">●</span>
                                    <span className="flex items-center gap-1"><Phone size={10} /> {op.phone}</span>
                                  </>
                                )}

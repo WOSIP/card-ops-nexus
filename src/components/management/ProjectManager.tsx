@@ -3,7 +3,6 @@ import {
   Plus, 
   Settings, 
   Calendar, 
-  CreditCard, 
   ChevronRight,
   Search,
   Filter,
@@ -11,10 +10,12 @@ import {
   MoreVertical,
   LayoutGrid,
   List,
-  Monitor
+  Monitor,
+  Eye,
+  ArrowUpRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -26,11 +27,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { Project } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { CreateProjectDialog } from "./projects/CreateProjectDialog";
 import { EditProjectDialog } from "./projects/EditProjectDialog";
+import { ProjectDetailDialog } from "./projects/ProjectDetailDialog";
 import { useManagement } from "@/context/ManagementContext";
 
 export const ProjectManager = () => {
@@ -38,8 +48,9 @@ export const ProjectManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 
   const filteredProjects = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -65,7 +76,8 @@ export const ProjectManager = () => {
     });
   };
 
-  const handleDeleteProject = (id: string) => {
+  const handleDeleteProject = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     const projectToDelete = projects.find(p => p.id === id);
     deleteProject(id);
     toast.error("Project deleted", {
@@ -73,9 +85,15 @@ export const ProjectManager = () => {
     });
   };
 
-  const handleEditClick = (project: Project) => {
+  const handleEditClick = (project: Project, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setSelectedProject(project);
     setIsEditOpen(true);
+  };
+
+  const handleProjectClick = (project: Project) => {
+    setSelectedProject(project);
+    setIsDetailOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -92,7 +110,7 @@ export const ProjectManager = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -149,9 +167,9 @@ export const ProjectManager = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-8">
+        <CardContent className="p-0">
           {viewMode === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8">
               <AnimatePresence mode="popLayout">
                 {filteredProjects.map((project, index) => {
                   const posCount = getPosCount(project.id);
@@ -163,25 +181,27 @@ export const ProjectManager = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ delay: index * 0.05 }}
+                      className="cursor-pointer"
+                      onClick={() => handleProjectClick(project)}
                     >
-                      <Card className="overflow-hidden group border border-border/40 shadow-md hover:shadow-2xl hover:border-primary/40 transition-all duration-500 bg-card/60 backdrop-blur-sm group">
+                      <Card className="overflow-hidden group border border-border/40 shadow-md hover:shadow-2xl hover:border-primary/40 transition-all duration-500 bg-card/60 backdrop-blur-sm group relative">
                         <CardHeader className="pb-2 px-6 pt-6 relative">
                           <div className="flex justify-between items-start mb-2">
                             <CardTitle className="text-xl font-black text-foreground group-hover:text-primary transition-colors line-clamp-1 flex-1 pr-8">{project.name}</CardTitle>
                             <div className="absolute top-6 right-4">
                               <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                   <Button variant="secondary" size="icon" className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10">
                                     <MoreVertical size={16} />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48 bg-card/95 backdrop-blur-xl border-border/40 rounded-xl">
                                   <DropdownMenuLabel className="text-[10px] font-black uppercase text-muted-foreground px-2 py-1">Project Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem className="cursor-pointer font-bold gap-2" onClick={() => handleEditClick(project)}>
+                                  <DropdownMenuItem className="cursor-pointer font-bold gap-2" onClick={(e) => handleEditClick(project, e)}>
                                     <Settings size={14} /> Edit Project
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="bg-border/20" />
-                                  <DropdownMenuItem className="cursor-pointer font-bold text-destructive gap-2" onClick={() => handleDeleteProject(project.id)}>
+                                  <DropdownMenuItem className="cursor-pointer font-bold text-destructive gap-2" onClick={(e) => handleDeleteProject(project.id, e)}>
                                     <Trash2 size={14} /> Delete
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -203,33 +223,22 @@ export const ProjectManager = () => {
                             </div>
                             <Progress value={(project.deployedCards / project.totalCards) * 100} className="h-1.5 bg-muted/30 shadow-inner" />
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.05]">
-                              <div className="flex items-center gap-2 mb-1">
-                                <CreditCard size={14} className="text-primary" />
-                                <p className="text-[10px] uppercase font-black text-muted-foreground tracking-tighter">Allocation</p>
-                              </div>
-                              <p className="font-black text-foreground text-lg">{project.totalCards.toLocaleString()}</p>
+                          <div className="flex items-center justify-between text-[10px] font-black text-muted-foreground uppercase tracking-widest pt-4 border-t border-border/10">
+                            <div className="flex items-center gap-2">
+                              <Calendar size={12} className="text-primary" />
+                              <span>Launched: {project.startDate}</span>
                             </div>
-                            <div className="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.05]">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Monitor size={14} className="text-success" />
-                                <p className="text-[10px] uppercase font-black text-muted-foreground tracking-tighter">Terminals</p>
-                              </div>
-                              <p className="font-black text-foreground text-lg">{posCount}</p>
+                            <div className="flex items-center gap-2">
+                              <Monitor size={12} className="text-success" />
+                              <span>{posCount} Terminals</span>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest pt-2 border-t border-border/10">
-                            <Calendar size={12} className="text-primary" />
-                            <span>Launched: {project.startDate}</span>
                           </div>
                         </CardContent>
-                        <CardFooter className="px-6 pb-6 pt-0">
-                          <Button variant="secondary" className="w-full gap-2 bg-white/5 hover:bg-white/10 rounded-xl font-black text-xs uppercase tracking-widest h-11 border border-white/5">
-                            Project Dashboard
-                            <ChevronRight size={16} />
+                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button variant="ghost" className="bg-primary text-white hover:bg-primary/90 rounded-full h-12 w-12 p-0 shadow-lg scale-0 group-hover:scale-100 transition-transform">
+                            <Eye size={24} />
                           </Button>
-                        </CardFooter>
+                        </div>
                       </Card>
                     </motion.div>
                   );
@@ -237,11 +246,94 @@ export const ProjectManager = () => {
               </AnimatePresence>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="text-center py-12 text-muted-foreground">
-                List view is currently optimized for Card Management. Switching back to Grid view for best experience.
-                <Button variant="link" onClick={() => setViewMode("grid")} className="block mx-auto mt-2 text-primary font-bold">Switch to Grid</Button>
-              </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-white/[0.02]">
+                  <TableRow className="hover:bg-transparent border-border/10">
+                    <TableHead className="w-[300px] py-6 px-8 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Project Identity</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Velocity</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Terminals</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Start Date</TableHead>
+                    <TableHead className="py-6 text-right px-8 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <AnimatePresence mode="popLayout">
+                    {filteredProjects.map((project, index) => (
+                      <motion.tr
+                        key={project.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        onClick={() => handleProjectClick(project)}
+                        className="group cursor-pointer hover:bg-white/[0.04] border-border/5 transition-colors"
+                      >
+                        <TableCell className="py-6 px-8">
+                          <div className="flex items-center gap-4">
+                            <div className="bg-primary/10 w-10 h-10 rounded-xl flex items-center justify-center border border-primary/20 shrink-0">
+                              <LayoutGrid size={18} className="text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-black text-foreground group-hover:text-primary transition-colors">{project.name}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-1 max-w-[200px]">{project.description}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`border-none font-bold shadow-none ${getStatusColor(project.status)}`}>
+                            {project.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-center gap-1.5 min-w-[120px]">
+                            <span className="text-[10px] font-black text-foreground">{Math.round((project.deployedCards / project.totalCards) * 100)}%</span>
+                            <Progress value={(project.deployedCards / project.totalCards) * 100} className="h-1.5 w-24 bg-muted/30" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-foreground">
+                          {getPosCount(project.id)}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                          {project.startDate}
+                        </TableCell>
+                        <TableCell className="text-right px-8" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleProjectClick(project)}
+                              className="h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary"
+                            >
+                              <ArrowUpRight size={16} />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-white/5">
+                                  <MoreVertical size={16} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48 bg-card/95 backdrop-blur-xl border-border/40 rounded-xl">
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase text-muted-foreground px-2 py-1">Project Actions</DropdownMenuLabel>
+                                <DropdownMenuItem className="cursor-pointer font-bold gap-2" onClick={(e) => handleProjectClick(project)}>
+                                  <Eye size={14} /> View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer font-bold gap-2" onClick={(e) => handleEditClick(project, e)}>
+                                  <Settings size={14} /> Edit Project
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-border/20" />
+                                <DropdownMenuItem className="cursor-pointer font-bold text-destructive gap-2" onClick={(e) => handleDeleteProject(project.id, e)}>
+                                  <Trash2 size={14} /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </TableBody>
+              </Table>
             </div>
           )}
 
@@ -272,6 +364,16 @@ export const ProjectManager = () => {
         onClose={() => setIsEditOpen(false)} 
         project={selectedProject}
         onUpdate={handleUpdateProject}
+      />
+
+      <ProjectDetailDialog
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        project={selectedProject}
+        onEdit={(p) => {
+          setSelectedProject(p);
+          setIsEditOpen(true);
+        }}
       />
     </div>
   );
