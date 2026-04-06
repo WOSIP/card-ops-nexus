@@ -1,28 +1,34 @@
-## Plan: Enhance Project Management Page
+# Plan: Improve POS Terminal CSV Import Functionality
 
-**Objective:** Modify the Project Management page to display a list of projects, enable clicking on a project to show its details in a popup, and suppress the display of "cards" within that popup.
+The goal is to enhance the UI/UX of the POS terminal import process, making it more robust, visually appealing, and user-friendly.
 
-**Key Files:**
-- `src/components/management/ProjectManager.tsx`
-- `src/components/management/projects/EditProjectDialog.tsx` (or a new component)
+## 1. POSManager.tsx Improvements
+- Refactor the "Bulk Import" button group for better visibility and UX.
+- Consolidate "Download Template" logic if necessary or ensure it's prominently accessible.
 
-**Implementation Steps:**
+## 2. ImportPOSDialog.tsx Overhaul
+### Visual Enhancements
+- Match the application's glassmorphism theme (replace the dark `#0A0A0B` with `bg-card/30 backdrop-blur-xl`).
+- Improve the upload dropzone with smoother animations and better instructions.
+- Add a refined parsing state with descriptive status messages.
 
-1.  **Modify `src/components/management/ProjectManager.tsx`:**
-    *   Fetch and display a list of projects. (Assuming a data fetching mechanism exists or needs to be added).
-    *   Implement state management for the currently selected project and popup visibility.
-    *   Add click handlers to project list items to open the project details popup.
+### Functional Enhancements
+- **Project Assignment**: Add a dropdown in the review step to assign all imported terminals to an existing project.
+- **Robust Parsing**:
+    - Expand header mapping to include more variations (e.g., "HWID" for serial, "Mobile" for phone).
+    - Handle quoted fields more reliably.
+- **Improved Review Step**:
+    - Enhance the validation display (errors/warnings).
+    - Allow users to filter the review table by status (All/Valid/Invalid).
+    - Add a "Clear Invalid Rows" convenience button.
+- **Enhanced Success State**:
+    - Show a detailed summary of the import.
+    - Add a button to "View Imported" which would filter the main POS list.
 
-2.  **Create/Adapt Project Detail Popup Component:**
-    *   **Option A (Adapt):** Modify `src/components/management/projects/EditProjectDialog.tsx` to serve as a display-only popup. Ensure it does not render any "card" related elements.
-    *   **Option B (New Component):** Create a new component (e.g., `ProjectDetailPopup.tsx`) for displaying project details. This component will receive project data and explicitly exclude "card" UIs.
-    *   The chosen popup component will receive the selected project's data as props.
+## 3. Data Integration
+- Ensure the `deploymentTag` and `projectId` (new) are correctly applied to the terminals before calling `onImport`.
+- Use `sonner` for consistent toast notifications.
 
-3.  **Integrate Popup:**
-    *   Conditionally render the popup component within `ProjectManager.tsx` based on the popup visibility state.
-    *   Ensure the popup correctly suppresses the display of "cards."
-
-4.  **Verification:**
-    *   Manually test clicking on projects to confirm the popup appears with the correct details.
-    *   Visually inspect the popup to ensure no "cards" are displayed.
-    *   Verify that other management sections and POS functionalities remain unaffected.
+## 4. File Changes
+- `src/components/management/pos/ImportPOSDialog.tsx`: Primary overhaul of the import logic and UI.
+- `src/components/management/POSManager.tsx`: Update the import button and its container.

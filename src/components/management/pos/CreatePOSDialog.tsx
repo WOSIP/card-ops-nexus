@@ -28,9 +28,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PosTerminal, POSStatus } from "@/types";
-import { motion } from "framer-motion";
-import { Monitor, MapPin, Sparkles, Hash, FolderKanban, CreditCard, Phone } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Monitor, MapPin, Sparkles, Hash, FolderKanban, CreditCard, Phone, Cpu, ShieldCheck, Globe, Network, Timer } from "lucide-react";
 import { useManagement } from "@/context/ManagementContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 
 const posSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -40,6 +42,20 @@ const posSchema = z.object({
   location: z.string().min(3, "Location must be at least 3 characters"),
   status: z.enum(["Online", "Offline", "Maintenance"]),
   projectId: z.string().optional(),
+  bullRegistrationEnabled: z.boolean(),
+  bullId: z.string().optional(),
+  bullFirmware: z.string().optional(),
+  bullProtocol: z.enum(["HTTPS", "MQTT", "WSS"]),
+  bullEnvironment: z.enum(["Production", "Staging", "Development"]),
+  bullHeartbeat: z.number().min(5, "Minimum 5 seconds"),
+}).refine((data) => {
+  if (data.bullRegistrationEnabled) {
+    return !!data.bullId && !!data.bullFirmware;
+  }
+  return true;
+}, {
+  message: "Bull ID and Firmware are required when registration is enabled",
+  path: ["bullId"],
 });
 
 type POSFormValues = z.infer<typeof posSchema>;
@@ -63,6 +79,12 @@ export const CreatePOSDialog = ({ isOpen, onClose, onCreate }: CreatePOSDialogPr
       location: "",
       status: "Online",
       projectId: "none",
+      bullRegistrationEnabled: false,
+      bullId: "",
+      bullFirmware: "v1.0.0",
+      bullProtocol: "HTTPS",
+      bullEnvironment: "Production",
+      bullHeartbeat: 60,
     },
   });
 
@@ -81,15 +103,26 @@ export const CreatePOSDialog = ({ isOpen, onClose, onCreate }: CreatePOSDialogPr
       totalTransactions: 0,
       projectId: data.projectId === "none" ? undefined : data.projectId,
       projectName: selectedProject?.name,
+      bullRegistration: data.bullRegistrationEnabled ? {
+        enabled: true,
+        bullId: data.bullId || "",
+        firmwareVersion: data.bullFirmware || "",
+        protocol: data.bullProtocol,
+        environment: data.bullEnvironment,
+        heartbeatInterval: data.bullHeartbeat,
+        lastSync: new Date().toISOString().replace('T', ' ').substr(0, 16),
+      } : undefined,
     };
     onCreate(newPos);
     form.reset();
   };
 
+  const bullEnabled = form.watch("bullRegistrationEnabled");
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] bg-card/95 backdrop-blur-2xl border-border/40 p-0 overflow-hidden rounded-3xl shadow-2xl">
-        <div className="relative h-40 bg-gradient-to-br from-primary/20 via-background to-background flex items-center justify-center overflow-hidden border-b border-border/20">
+      <DialogContent className="sm:max-w-[650px] max-h-[90vh] flex flex-col bg-card/95 backdrop-blur-2xl border-border/40 p-0 overflow-hidden rounded-3xl shadow-2xl text-foreground">
+        <div className="relative flex-none h-40 bg-gradient-to-br from-primary/20 via-background to-background flex items-center justify-center overflow-hidden border-b border-border/20">
           <motion.div 
             initial={{ scale: 1.1, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -105,165 +138,321 @@ export const CreatePOSDialog = ({ isOpen, onClose, onCreate }: CreatePOSDialogPr
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="p-8 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Terminal Name</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                           <Monitor className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                           <Input placeholder="Main Entrance Terminal" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl" {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <FormField
-                  control={form.control}
-                  name="cardIdentity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Terminal Card Identity</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                           <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                           <Input placeholder="5105 **** **** 0000" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl" {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <FormField
-                  control={form.control}
-                  name="phoneNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Phone Identification</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                           <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                           <Input placeholder="+251 911 000 000" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl" {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <FormField
-                  control={form.control}
-                  name="projectId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Associated Project</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="h-11 bg-white/5 border-border/40 rounded-xl">
-                            <div className="flex items-center gap-2">
-                              <FolderKanban className="w-4 h-4 text-primary" />
-                              <SelectValue placeholder="Select a project" />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+            <ScrollArea className="flex-1">
+              <div className="p-8 space-y-6 text-foreground">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Terminal Name</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                               <Monitor className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                               <Input placeholder="Main Entrance Terminal" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl text-foreground" {...field} />
                             </div>
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="bg-card/95 backdrop-blur-xl border-border/40">
-                          <SelectItem value="none" className="font-bold cursor-pointer">No Project Link</SelectItem>
-                          {projects.map((project) => (
-                            <SelectItem key={project.id} value={project.id} className="font-bold cursor-pointer">
-                              {project.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-              <div className="md:col-span-2">
-                <FormField
-                  control={form.control}
-                  name="serialNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Serial Number / TID</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                          <Input placeholder="TID-12345678" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl" {...field} />
+                  <div className="md:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="cardIdentity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Terminal Card Identity</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                               <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                               <Input placeholder="5105 **** **** 0000" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl text-foreground" {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Phone Identification</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                               <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                               <Input placeholder="+251 911 000 000" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl text-foreground" {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="projectId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Associated Project</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-11 bg-white/5 border-border/40 rounded-xl text-foreground">
+                                <div className="flex items-center gap-2">
+                                  <FolderKanban className="w-4 h-4 text-primary" />
+                                  <SelectValue placeholder="Select a project" />
+                                </div>
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-card/95 backdrop-blur-xl border-border/40">
+                              <SelectItem value="none" className="font-bold cursor-pointer text-foreground">No Project Link</SelectItem>
+                              {projects.map((project) => (
+                                <SelectItem key={project.id} value={project.id} className="font-bold cursor-pointer text-foreground">
+                                  {project.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="md:col-span-1">
+                    <FormField
+                      control={form.control}
+                      name="serialNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Serial Number / TID</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                              <Input placeholder="TID-123" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl text-foreground" {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="md:col-span-1">
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Initial Status</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-11 bg-white/5 border-border/40 rounded-xl text-foreground">
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-card/95 backdrop-blur-xl border-border/40">
+                              <SelectItem value="Online" className="font-bold text-success cursor-pointer">Online</SelectItem>
+                              <SelectItem value="Offline" className="font-bold text-destructive cursor-pointer">Offline</SelectItem>
+                              <SelectItem value="Maintenance" className="font-bold text-warning cursor-pointer">Maintenance</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Physical Location</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                              <Input placeholder="Central Mall - South Wing" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl text-foreground" {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 pt-4 border-t border-border/20">
+                    <div className="flex items-center justify-between bg-primary/5 p-4 rounded-2xl border border-primary/20">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-primary/20 text-primary">
+                          <Cpu className="w-5 h-5" />
                         </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Physical Location</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                          <Input placeholder="Central Mall - South Wing" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl" {...field} />
+                        <div>
+                          <h4 className="text-sm font-black text-foreground tracking-tight">Bull Infrastructure Registration</h4>
+                          <p className="text-xs font-medium text-muted-foreground">Link this device to Bull management services</p>
                         </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="bullRegistrationEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                className="data-[state=checked]:bg-primary"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Initial Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-11 bg-white/5 border-border/40 rounded-xl">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="bg-card/95 backdrop-blur-xl border-border/40">
-                        <SelectItem value="Online" className="font-bold text-success cursor-pointer">Online</SelectItem>
-                        <SelectItem value="Offline" className="font-bold text-destructive cursor-pointer">Offline</SelectItem>
-                        <SelectItem value="Maintenance" className="font-bold text-warning cursor-pointer">Maintenance</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    <AnimatePresence>
+                      {bullEnabled && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                          animate={{ height: "auto", opacity: 1, marginTop: 16 }}
+                          exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-border/20">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField
+                                control={form.control}
+                                name="bullId"
+                                render={({ field }) => (
+                                  <FormItem className="md:col-span-2">
+                                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Bull Identity ID</FormLabel>
+                                    <FormControl>
+                                      <div className="relative">
+                                        <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                                        <Input placeholder="BULL-000-XX" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl text-foreground" {...field} />
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="bullFirmware"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Firmware Version</FormLabel>
+                                    <FormControl>
+                                      <div className="relative">
+                                        <Cpu className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                                        <Input placeholder="v1.0.0" className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl text-foreground" {...field} />
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="bullProtocol"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Sync Protocol</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger className="h-11 bg-white/5 border-border/40 rounded-xl text-foreground">
+                                          <div className="flex items-center gap-2">
+                                            <Network className="w-4 h-4 text-primary" />
+                                            <SelectValue placeholder="Protocol" />
+                                          </div>
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent className="bg-card/95 backdrop-blur-xl border-border/40">
+                                        <SelectItem value="HTTPS" className="font-bold cursor-pointer text-foreground">HTTPS</SelectItem>
+                                        <SelectItem value="MQTT" className="font-bold cursor-pointer text-foreground">MQTT</SelectItem>
+                                        <SelectItem value="WSS" className="font-bold cursor-pointer text-foreground">Websocket (WSS)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="bullEnvironment"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Target Environment</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger className="h-11 bg-white/5 border-border/40 rounded-xl text-foreground">
+                                          <div className="flex items-center gap-2">
+                                            <Globe className="w-4 h-4 text-primary" />
+                                            <SelectValue placeholder="Environment" />
+                                          </div>
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent className="bg-card/95 backdrop-blur-xl border-border/40">
+                                        <SelectItem value="Production" className="font-bold cursor-pointer text-success">Production</SelectItem>
+                                        <SelectItem value="Staging" className="font-bold cursor-pointer text-warning">Staging</SelectItem>
+                                        <SelectItem value="Development" className="font-bold cursor-pointer text-primary">Development</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="bullHeartbeat"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Heartbeat (sec)</FormLabel>
+                                    <FormControl>
+                                      <div className="relative">
+                                        <Timer className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                                        <Input 
+                                          type="number" 
+                                          className="pl-10 h-11 bg-white/5 border-border/40 rounded-xl text-foreground" 
+                                          {...field} 
+                                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                        />
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+
+            <div className="flex-none p-8 pt-4 border-t border-border/20 bg-card/50 backdrop-blur-md">
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={onClose} className="h-12 px-6 rounded-xl font-bold hover:bg-white/5 text-foreground">Cancel</Button>
+                <Button type="submit" className="h-12 px-8 rounded-xl font-bold bg-primary shadow-xl shadow-primary/20">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Register Terminal
+                </Button>
+              </DialogFooter>
             </div>
-
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="ghost" onClick={onClose} className="h-12 px-6 rounded-xl font-bold hover:bg-white/5">Cancel</Button>
-              <Button type="submit" className="h-12 px-8 rounded-xl font-bold bg-primary shadow-xl shadow-primary/20">
-                <Sparkles className="mr-2 h-4 w-4" />
-                Register Terminal
-              </Button>
-            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

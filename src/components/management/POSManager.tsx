@@ -20,7 +20,10 @@ import {
   X,
   Smartphone,
   Eye,
-  Phone
+  Phone,
+  Download,
+  Upload,
+  FileText
 } from "lucide-react";
 import { 
   Table, 
@@ -60,10 +63,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { CreatePOSDialog } from "./pos/CreatePOSDialog";
 import { EditPOSDialog } from "./pos/EditPOSDialog";
+import { ImportPOSDialog } from "./pos/ImportPOSDialog";
 import { LinkOperatorPOSDialog } from "./LinkOperatorPOSDialog";
 import { POSIdentityDialog } from "./pos/POSIdentityDialog";
 import { useManagement } from "@/context/ManagementContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 const mockTransactions: Transaction[] = [
   { id: "tx1", cardId: "4532-****-9012", amount: 45.00, timestamp: "2024-03-20 14:22", location: "Central Mall", status: "Success" },
@@ -85,6 +90,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
     linkOperatorsToPos, 
     updateTerminal, 
     createTerminal, 
+    bulkCreateTerminals,
     deleteTerminal 
   } = useManagement();
 
@@ -94,6 +100,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
   const [isTxOpen, setIsTxOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isLinkOpen, setIsLinkOpen] = useState(false);
   const [isIdentityOpen, setIsIdentityOpen] = useState(false);
 
@@ -112,7 +119,10 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
     const term = searchTerm.toLowerCase().trim();
     if (term) {
       result = result.filter(t => {
-        const opNames = (t.operatorIds || []).map(id => operators.find(o => o.id === id)?.name || "").join(" ");
+        const opNames = (t.operatorIds || []).map(id => {
+          const op = operators.find(o => o.id === id);
+          return op ? op.name : "";
+        }).join(" ");
         return (
           t.name.toLowerCase().includes(term) ||
           t.serialNumber.toLowerCase().includes(term) ||
@@ -120,7 +130,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
           t.phoneNumber.toLowerCase().includes(term) ||
           t.id.toLowerCase().includes(term) ||
           t.location.toLowerCase().includes(term) ||
-          t.projectName?.toLowerCase().includes(term) ||
+          (t.projectName && t.projectName.toLowerCase().includes(term)) ||
           opNames.toLowerCase().includes(term)
         );
       });
@@ -129,7 +139,6 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
     return result;
   }, [terminals, searchTerm, projectFilter, operators]);
 
-  // Handle selected POS sync with state (for the identity dialog)
   const currentSelectedPOS = useMemo(() => {
     if (!selectedPOS) return null;
     return terminals.find(t => t.id === selectedPOS.id) || selectedPOS;
@@ -145,32 +154,37 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
   const handleCreate = (newPos: PosTerminal) => {
     createTerminal(newPos);
     setIsCreateOpen(false);
-    toast.success(`Terminal ${newPos.serialNumber} registered successfully`);
+    toast.success("Terminal " + newPos.serialNumber + " registered successfully");
+  };
+
+  const handleImport = (newTerminals: PosTerminal[]) => {
+    bulkCreateTerminals(newTerminals);
+    setIsImportOpen(false);
+    toast.success(`${newTerminals.length} terminals imported successfully`, {
+      description: "Fleet database has been updated with the new batch."
+    });
   };
 
   const handleUpdate = (updatedPos: PosTerminal) => {
     updateTerminal(updatedPos);
     setIsEditOpen(false);
     setSelectedPOS(null);
-    toast.success(`Terminal ${updatedPos.serialNumber} updated successfully`);
+    toast.success("Terminal " + updatedPos.serialNumber + " updated successfully");
   };
 
   const handleDelete = (id: string) => {
     const deleted = terminals.find(t => t.id === id);
     deleteTerminal(id);
-    toast.success(`Terminal ${deleted?.serialNumber} removed from system`);
+    toast.success("Terminal " + (deleted ? deleted.serialNumber : id) + " removed from system");
   };
 
   const handleLink = (posId: string, operatorIds: string[]) => {
-    // When linking from POS, we want to REPLACE the current set with the new selection
     linkOperatorsToPos(operatorIds, posId, true);
-    
     setIsLinkOpen(false);
-    // Keep selectedPOS if identity dialog is open
     if (!isIdentityOpen) {
       setSelectedPOS(null);
     }
-    toast.success(`${operatorIds.length} operator(s) linked to terminal`);
+    toast.success(operatorIds.length + " operator(s) linked to terminal");
   };
 
   const openEdit = (pos: PosTerminal) => {
@@ -188,10 +202,85 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
     setIsIdentityOpen(true);
   };
 
+  const downloadTemplate = () => {
+    const headers = 'Name,SerialNumber,CardIdentity,PhoneNumber,Location,Status,BullID';
+    const example = 'Terminal Alpha,SN-99421,5105 8421 7732 9042,+251911222333,Addis Mall,Online,BULL-001';
+    const blob = new Blob([headers + String.fromCharCode(10) + example], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pos_import_template.csv';
+    a.click();
+    toast.success('Template downloaded');
+  };
+
+  const exportToCSV = () => {
+    if (filteredTerminals.length === 0) {
+      toast.error("No terminals to export");
+      return;
+    }
+
+    const headers = [
+      "ID", "Terminal Name", "Serial Number", "Card Identity", "Phone Number", 
+      "Location", "Status", "Last Activity", "Total Transactions", 
+      "Associated Project", "Operators Count", "Assigned Operators", 
+      "Bull Enabled", "Bull ID", "Firmware Version", "Protocol", "Environment"
+    ];
+
+    const csvData = filteredTerminals.map(pos => {
+      const opNames = (pos.operatorIds || [])
+        .map(id => {
+          const op = operators.find(o => o.id === id);
+          return op ? op.name : id;
+        })
+        .join("; ");
+
+      const bull = pos.bullRegistration;
+
+      return [
+        pos.id,
+        '"' + (pos.name || "").replace(/"/g, '""') + '"',
+        '"' + (pos.serialNumber || "").replace(/"/g, '""') + '"',
+        '"' + (pos.cardIdentity || "").replace(/"/g, '""') + '"',
+        '"' + (pos.phoneNumber || "").replace(/"/g, '""') + '"',
+        '"' + (pos.location || "").replace(/"/g, '""') + '"',
+        pos.status,
+        '"' + (pos.lastPing || "").replace(/"/g, '""') + '"',
+        pos.totalTransactions,
+        '"' + (pos.projectName || "N/A").replace(/"/g, '""') + '"',
+        pos.operatorIds ? pos.operatorIds.length : 0,
+        '"' + opNames.replace(/"/g, '""') + '"',
+        bull && bull.enabled ? "Yes" : "No",
+        '"' + (bull && bull.bullId ? bull.bullId : "N/A") + '"',
+        '"' + (bull && bull.firmwareVersion ? bull.firmwareVersion : "N/A") + '"',
+        '"' + (bull && bull.protocol ? bull.protocol : "N/A") + '"',
+        '"' + (bull && bull.environment ? bull.environment : "N/A") + '"'
+      ].join(",");
+    });
+
+    const csvContent = "\\uFEFF" + [headers.join(","), ...csvData].join(String.fromCharCode(10));
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const date = new Date().toISOString().split('T')[0];
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", "pos-network-inventory-" + date + ".csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("POS Network list exported successfully");
+  };
+
   const selectedProjectName = useMemo(() => {
     if (projectFilter === "all") return null;
-    return projects.find(p => p.id === projectFilter)?.name;
+    const p = projects.find(proj => proj.id === projectFilter);
+    return p ? p.name : null;
   }, [projectFilter, projects]);
+
+  const existingSerials = useMemo(() => terminals.map(t => t.serialNumber), [terminals]);
 
   return (
     <div className="space-y-8 pb-12">
@@ -205,23 +294,64 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
               <Badge className="bg-primary/20 text-primary border-primary/20 hover:bg-primary/30 transition-colors">Supervisor View</Badge>
             )}
           </div>
-          <p className="text-muted-foreground mt-2 text-lg font-medium leading-relaxed">
+          <p className="text-muted-foreground mt-2 text-lg font-medium leading-relaxed text-balance">
             Monitor and manage your hardware ecosystem in real-time.
           </p>
         </motion.div>
         
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2 border-border/40 hover:bg-white/5 h-11 px-5 rounded-xl hidden sm:flex font-bold">
-            <Activity size={18} className="text-primary" />
-            Diagnostics
-          </Button>
-          <Button 
-            className="gap-2 shadow-xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-6 rounded-xl font-black transition-all hover:scale-105 active:scale-95"
-            onClick={() => setIsCreateOpen(true)}
-          >
-            <Plus size={20} strokeWidth={2.5} />
-            Register Terminal
-          </Button>
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-wrap items-center gap-3">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <motion.button
+                  whileHover={{ y: -2, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={exportToCSV}
+                  className="flex items-center gap-2 h-11 px-5 rounded-xl font-bold bg-card border border-border/40 hover:bg-white/5 transition-all shadow-lg shadow-black/5 text-foreground"
+                >
+                  <Download size={18} className="text-primary" />
+                  <span className="hidden xs:inline">Export List</span>
+                </motion.button>
+              </TooltipTrigger>
+              <TooltipContent>Download full network inventory as CSV</TooltipContent>
+            </Tooltip>
+
+            <div className="flex items-center bg-primary/10 border border-primary/30 rounded-xl p-1 shadow-lg shadow-primary/5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={downloadTemplate} 
+                    className="p-2.5 hover:bg-primary/10 rounded-lg text-primary transition-colors flex items-center gap-2"
+                  >
+                    <FileText size={18} />
+                    <span className="text-[10px] font-black uppercase tracking-tighter">CSV Template</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Download CSV Import Template</TooltipContent>
+              </Tooltip>
+              <div className="w-px h-6 bg-primary/20 mx-1" />
+              <motion.button
+                whileHover={{ scale: 1.02, backgroundColor: "rgba(var(--primary), 0.2)" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsImportOpen(true)}
+                className="flex items-center gap-2 h-10 px-6 rounded-lg font-black bg-primary text-primary-foreground transition-all shadow-md shadow-primary/20"
+              >
+                <Upload size={18} />
+                <span className="hidden xs:inline uppercase text-[11px] tracking-widest">Bulk Import</span>
+              </motion.button>
+            </div>
+
+            <motion.button
+              whileHover={{ y: -2, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setIsCreateOpen(true)}
+              className="flex items-center gap-2 h-11 px-6 rounded-xl font-black bg-foreground text-background hover:bg-foreground/90 transition-all shadow-xl shadow-foreground/10"
+            >
+              <Plus size={20} strokeWidth={2.5} />
+              <span className="hidden xs:inline uppercase text-xs tracking-widest">Register Terminal</span>
+              <span className="xs:hidden">Register</span>
+            </motion.button>
+          </TooltipProvider>
         </motion.div>
       </div>
 
@@ -235,7 +365,11 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
             <Card className="border-border/40 shadow-sm overflow-hidden bg-card/40 backdrop-blur-md hover:border-primary/40 transition-all duration-300 group">
               <CardContent className="p-5 flex items-center gap-4">
-                <div className={`p-3 rounded-2xl bg-${stat.color === 'primary' ? 'primary' : stat.color === 'success' ? 'success' : stat.color === 'warning' ? 'warning' : 'destructive'}/10 text-${stat.color === 'primary' ? 'primary' : stat.color === 'success' ? 'success' : stat.color === 'warning' ? 'warning' : 'destructive'} group-hover:scale-110 transition-transform duration-500 shadow-inner`}>
+                <div className={cn("p-3 rounded-2xl group-hover:scale-110 transition-transform duration-500 shadow-inner", 
+                  stat.color === 'primary' ? "bg-primary/10 text-primary" : 
+                  stat.color === 'success' ? "bg-success/10 text-success" : 
+                  stat.color === 'warning' ? "bg-warning/10 text-warning" : 
+                  "bg-destructive/10 text-destructive")}>
                   <stat.icon size={26} strokeWidth={2} />
                 </div>
                 <div>
@@ -343,7 +477,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
                 <TableBody>
                   <AnimatePresence mode="popLayout">
                     {filteredTerminals.map((pos) => {
-                      const assignedCount = pos.operatorIds?.length || 0;
+                      const assignedCount = pos.operatorIds ? pos.operatorIds.length : 0;
                       const firstOperator = pos.operatorIds && pos.operatorIds.length > 0 
                         ? operators.find(o => o.id === pos.operatorIds![0]) 
                         : null;
@@ -360,7 +494,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
                         >
                           <TableCell className="pl-8 py-5">
                             <div className="flex items-center gap-3">
-                              <div className={`p-2.5 rounded-xl bg-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'}/10 text-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'} shadow-inner border border-${pos.status === 'Online' ? 'success' : pos.status === 'Offline' ? 'destructive' : 'warning'}/20`}>
+                              <div className={cn("p-2.5 rounded-xl shadow-inner border", pos.status === 'Online' ? "bg-success/10 text-success border-success/20" : pos.status === 'Offline' ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-warning/10 text-warning border-warning/20")}>
                                 <Smartphone size={18} strokeWidth={2.5} />
                               </div>
                               <div className="flex flex-col">
@@ -398,7 +532,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
                                     <TooltipTrigger asChild>
                                       <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 w-fit">
                                         <Users size={10} strokeWidth={2.5} />
-                                        {assignedCount === 1 ? firstOperator?.name : `${assignedCount} Operators`}
+                                        {assignedCount === 1 ? (firstOperator ? firstOperator.name : "Operator") : assignedCount + " Operators"}
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent className="bg-card/95 backdrop-blur-xl border-border/40 p-3 rounded-xl shadow-2xl">
@@ -438,14 +572,8 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
                              </div>
                           </TableCell>
                           <TableCell>
-                             <Badge className={`px-3 py-1 rounded-full font-black text-[10px] tracking-widest ${
-                                pos.status === 'Online' 
-                                  ? 'bg-success/10 text-success border-success/30' 
-                                  : pos.status === 'Offline'
-                                    ? 'bg-destructive/10 text-destructive border-destructive/30'
-                                    : 'bg-warning/10 text-warning border-warning/30'
-                              }`}>
-                                <span className="mr-1.5">●</span>
+                             <Badge className={cn("px-3 py-1 rounded-full font-black text-[10px] tracking-widest", pos.status === 'Online' ? "bg-success/10 text-success border-success/30" : pos.status === 'Offline' ? "bg-destructive/10 text-destructive border-destructive/30" : "bg-warning/10 text-warning border-warning/30")}>
+                                <span className="mr-1.5">\\u25cf</span>
                                 {pos.status.toUpperCase()}
                               </Badge>
                           </TableCell>
@@ -544,7 +672,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
                     Telemetry: {selectedPOS?.name}
                   </DialogTitle>
                   <DialogDescription className="text-base font-medium text-muted-foreground">
-                    Device Serial: <span className="text-primary font-bold">{selectedPOS?.serialNumber}</span> • Tracking historical data flow.
+                    Device Serial: <span className="text-primary font-bold">{selectedPOS?.serialNumber}</span> \\u2022 Tracking historical data flow.
                   </DialogDescription>
                 </div>
               </div>
@@ -552,16 +680,16 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { label: "Daily Throughput", value: `$${(selectedPOS?.totalTransactions || 0) * 12}.00`, icon: Activity, color: "primary" },
+                { label: "Daily Throughput", value: "$" + ((selectedPOS ? selectedPOS.totalTransactions : 0) * 12) + ".00", icon: Activity, color: "primary" },
                 { label: "Auth Success", value: "142", icon: UserCheck, color: "success" },
                 { label: "Blocked / Failed", value: "3", icon: AlertTriangle, color: "destructive" },
               ].map((m, i) => (
                 <Card key={i} className="p-6 border-border/40 bg-white/[0.03] shadow-inner rounded-2xl relative overflow-hidden group">
-                  <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-${m.color}`}>
+                  <div className={cn("absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-500", m.color === 'primary' ? "text-primary" : m.color === 'success' ? "text-success" : "text-destructive")}>
                     <m.icon size={64} />
                   </div>
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">{m.label}</p>
-                  <p className={`text-3xl font-black text-${m.color === 'primary' ? 'foreground' : m.color === 'success' ? 'success' : 'destructive'}`}>{m.value}</p>
+                  <p className={cn("text-3xl font-black", m.color === 'primary' ? "text-foreground" : m.color === 'success' ? "text-success" : "text-destructive")}>{m.value}</p>
                 </Card>
               ))}
             </div>
@@ -583,7 +711,7 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
                         <TableCell className="font-black text-foreground">${tx.amount.toFixed(2)}</TableCell>
                         <TableCell className="text-xs text-muted-foreground font-medium">{tx.timestamp}</TableCell>
                         <TableCell className="text-right pr-6">
-                          <Badge variant="outline" className={`font-black text-[9px] tracking-wider ${tx.status === 'Success' ? 'border-success/30 text-success bg-success/10' : 'border-destructive/30 text-destructive bg-destructive/10'}`}>
+                          <Badge variant="outline" className={cn("font-black text-[9px] tracking-wider", tx.status === 'Success' ? 'border-success/30 text-success bg-success/10' : 'border-destructive/30 text-destructive bg-destructive/10')}>
                             {tx.status.toUpperCase()}
                           </Badge>
                         </TableCell>
@@ -610,6 +738,13 @@ export const POSManager = ({ userRole = "Super Admin" }: POSManagerProps) => {
         }} 
         onUpdate={handleUpdate}
         pos={selectedPOS}
+      />
+
+      <ImportPOSDialog
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImport={handleImport}
+        existingSerials={existingSerials}
       />
 
       <LinkOperatorPOSDialog

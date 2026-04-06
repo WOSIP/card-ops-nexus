@@ -18,7 +18,8 @@ import {
   Monitor,
   MapPin,
   ExternalLink,
-  Settings
+  Settings,
+  Globe
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useManagement } from "@/context/ManagementContext";
@@ -68,11 +69,15 @@ export const ProjectDetailDialog = ({ isOpen, onClose, project, onEdit }: Projec
               </div>
               <div>
                 <DialogTitle className="text-3xl font-black tracking-tight text-foreground mb-1">{project.name}</DialogTitle>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className={`font-bold border px-3 py-0.5 rounded-full ${getStatusColor(project.status)}`}>
                     <span className="mr-1.5">{getStatusIcon(project.status)}</span>
                     {project.status}
                   </Badge>
+                  <span className="text-muted-foreground text-sm font-medium flex items-center gap-1.5 ml-2">
+                    <Globe size={14} className="text-primary" />
+                    {project.country}
+                  </span>
                   <span className="text-muted-foreground text-sm font-medium flex items-center gap-1.5 ml-2">
                     <Calendar size={14} />
                     Launched: {project.startDate}
@@ -107,7 +112,14 @@ export const ProjectDetailDialog = ({ isOpen, onClose, project, onEdit }: Projec
             <Separator className="bg-border/10" />
 
             {/* Stats Summary - Avoiding Card Presentation as requested */}
-            <section className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+            <section className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+              <div className="px-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Country</p>
+                <p className="text-xl font-black text-foreground flex items-center gap-2">
+                  <Globe size={16} className="text-primary shrink-0" />
+                  {project.country}
+                </p>
+              </div>
               <div className="px-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Total Capacity</p>
                 <p className="text-2xl font-black text-foreground">{project.totalCards.toLocaleString()}</p>
@@ -116,7 +128,7 @@ export const ProjectDetailDialog = ({ isOpen, onClose, project, onEdit }: Projec
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Distributed</p>
                 <p className="text-2xl font-black text-foreground">{project.deployedCards.toLocaleString()}</p>
               </div>
-              <div className="px-1 col-span-2 sm:col-span-1">
+              <div className="px-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Active Terminals</p>
                 <p className="text-2xl font-black text-foreground">{projectTerminals.length}</p>
               </div>

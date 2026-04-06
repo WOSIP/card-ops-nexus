@@ -1,12 +1,6 @@
 import React from "react";
 import { 
-  Users, 
-  CreditCard, 
-  CheckCircle2, 
-  AlertCircle,
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight
+  TrendingUp
 } from "lucide-react";
 import { 
   XAxis, 
@@ -40,27 +34,6 @@ const pieData = [
   { name: "Pending", value: 200, color: "var(--warning)" },
 ];
 
-const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = "primary" }: any) => (
-  <Card className={`overflow-hidden border border-border/40 shadow-xl bg-card/50 backdrop-blur-sm group hover:border-${color}/30 transition-all duration-300`}>
-    <CardContent className="p-7">
-      <div className="flex justify-between items-start">
-        <div className={`p-3.5 rounded-2xl bg-${color}/10 text-${color} group-hover:scale-110 group-hover:bg-${color}/20 transition-all duration-300 shadow-inner`}>
-          <Icon size={26} />
-        </div>
-        <Badge variant="outline" className={`flex items-center gap-1.5 border-none px-2.5 py-1 ${trend === 'up' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'} font-bold text-xs`}>
-          {trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-          {trendValue}
-        </Badge>
-      </div>
-      <div className="mt-6">
-        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">{title}</p>
-        <h3 className="text-4xl font-extrabold mt-1.5 tracking-tighter text-foreground">{value}</h3>
-      </div>
-    </CardContent>
-    <div className={`h-1.5 w-full bg-gradient-to-r from-transparent via-${color}/40 to-transparent opacity-30 group-hover:opacity-100 transition-opacity`} />
-  </Card>
-);
-
 export const Overview = () => {
   return (
     <div className="space-y-10 pb-12">
@@ -73,42 +46,6 @@ export const Overview = () => {
            <Badge className="bg-primary text-primary-foreground px-4 py-1.5 rounded-lg cursor-pointer">Live</Badge>
            <Badge variant="outline" className="border-none text-muted-foreground px-4 py-1.5 rounded-lg cursor-pointer hover:bg-white/5">History</Badge>
         </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-        <StatCard 
-          title="Total Cards" 
-          value="12,482" 
-          icon={CreditCard} 
-          trend="up" 
-          trendValue="+12.4%"
-          color="primary"
-        />
-        <StatCard 
-          title="Active Users" 
-          value="8,943" 
-          icon={Users} 
-          trend="up" 
-          trendValue="+5.2%"
-          color="success"
-        />
-        <StatCard 
-          title="Deployments" 
-          value="1,205" 
-          icon={CheckCircle2} 
-          trend="down" 
-          trendValue="-2.4%"
-          color="neutral-grey"
-        />
-        <StatCard 
-          title="Alerts" 
-          value="432" 
-          icon={AlertCircle} 
-          trend="up" 
-          trendValue="+1.8%"
-          color="warning"
-        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

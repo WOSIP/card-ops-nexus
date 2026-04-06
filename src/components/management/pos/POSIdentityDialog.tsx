@@ -24,7 +24,11 @@ import {
   Users,
   UserPlus,
   UserMinus,
-  Mail
+  Mail,
+  RefreshCw,
+  Network,
+  Globe,
+  Timer
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,7 +52,7 @@ export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink }: POSIdentityD
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-card/95 backdrop-blur-3xl border-border/40 p-0 overflow-hidden rounded-[2.5rem] shadow-2xl">
+      <DialogContent className="max-w-2xl bg-card/95 backdrop-blur-3xl border-border/40 p-0 overflow-hidden rounded-[2.5rem] shadow-2xl text-foreground">
         {/* Header with Background Pattern */}
         <div className="relative h-48 bg-gradient-to-br from-primary/30 via-background to-background flex items-center justify-center overflow-hidden border-b border-border/20">
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, var(--primary) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
@@ -82,7 +86,6 @@ export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink }: POSIdentityD
           >
             <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-success/50 rounded-[2rem] blur opacity-25 group-hover:opacity-40 transition duration-1000" />
             <div className="relative aspect-[1.586/1] w-full max-w-md mx-auto bg-neutral-900 rounded-[2rem] p-8 shadow-2xl overflow-hidden flex flex-col justify-between border border-white/10">
-              {/* Card Decoration */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -mr-32 -mt-32" />
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-success/10 rounded-full blur-3xl -ml-24 -mb-24" />
               
@@ -132,6 +135,66 @@ export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink }: POSIdentityD
             </div>
           </motion.div>
 
+          {/* Bull Registration Details */}
+          {pos.bullRegistration?.enabled && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-[2rem] bg-primary/5 border border-primary/20 shadow-inner space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-primary/20 text-primary">
+                    <Cpu className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Bull Infrastructure</p>
+                    <h4 className="text-lg font-black text-foreground tracking-tight">Active Registration</h4>
+                  </div>
+                </div>
+                <Badge className={`${
+                  pos.bullRegistration.environment === 'Production' ? 'bg-success/10 text-success border-success/30' : 
+                  pos.bullRegistration.environment === 'Staging' ? 'bg-warning/10 text-warning border-warning/30' : 
+                  'bg-primary/10 text-primary border-primary/30'
+                } rounded-full font-black text-[9px] tracking-widest px-3 py-1`}>
+                  {pos.bullRegistration.environment.toUpperCase()}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="bg-white/5 p-3 rounded-2xl border border-border/20">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Bull ID</p>
+                  <p className="text-xs font-mono font-bold text-primary truncate">{pos.bullRegistration.bullId}</p>
+                </div>
+                <div className="bg-white/5 p-3 rounded-2xl border border-border/20">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Firmware</p>
+                  <p className="text-xs font-bold text-foreground truncate">{pos.bullRegistration.firmwareVersion}</p>
+                </div>
+                <div className="bg-white/5 p-3 rounded-2xl border border-border/20">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Protocol</p>
+                  <div className="flex items-center gap-1.5">
+                    <Network size={10} className="text-primary" />
+                    <p className="text-xs font-bold text-foreground">{pos.bullRegistration.protocol}</p>
+                  </div>
+                </div>
+                <div className="bg-white/5 p-3 rounded-2xl border border-border/20">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Heartbeat</p>
+                  <div className="flex items-center gap-1.5">
+                    <Timer size={10} className="text-primary" />
+                    <p className="text-xs font-bold text-foreground">{pos.bullRegistration.heartbeatInterval}s</p>
+                  </div>
+                </div>
+                <div className="bg-white/5 p-3 rounded-2xl border border-border/20 col-span-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Last Sync</p>
+                    <p className="text-xs font-bold text-foreground">{pos.bullRegistration.lastSync || "Never"}</p>
+                  </div>
+                  <RefreshCw size={14} className="text-muted-foreground/40 animate-spin-slow" />
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
@@ -148,7 +211,6 @@ export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink }: POSIdentityD
             ))}
           </div>
 
-          {/* Location, Details & Operators */}
           <div className="space-y-4">
             <div className="flex items-center gap-4 p-5 rounded-3xl bg-white/5 border border-border/40 shadow-inner group transition-colors hover:border-primary/20">
               <div className="p-3 rounded-2xl bg-primary/10 text-primary border border-primary/20">
@@ -236,7 +298,7 @@ export const POSIdentityDialog = ({ isOpen, onClose, pos, onLink }: POSIdentityD
               <History className="mr-2 w-4 h-4" />
               Audit Logs
             </Button>
-            <Button variant="outline" className="flex-1 h-12 rounded-2xl font-black border-border/40 hover:bg-white/5" onClick={onClose}>
+            <Button variant="outline" className="flex-1 h-12 rounded-2xl font-black border-border/40 hover:bg-white/5 text-foreground" onClick={onClose}>
               Close Identity
             </Button>
           </div>

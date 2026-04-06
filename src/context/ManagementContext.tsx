@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { Operator, PosTerminal, Project } from "@/types";
+import { Operator, PosTerminal, Project, User } from "@/types";
 
 interface ManagementContextType {
   operators: Operator[];
   terminals: PosTerminal[];
   projects: Project[];
+  users: User[];
   linkOperatorsToPos: (operatorIds: string[], posId: string, replace?: boolean) => void;
   unlinkOperatorFromPos: (operatorId: string, posId: string) => void;
   updateOperator: (operator: Operator) => void;
@@ -12,10 +13,15 @@ interface ManagementContextType {
   deleteOperator: (id: string) => void;
   updateTerminal: (terminal: PosTerminal) => void;
   createTerminal: (terminal: PosTerminal) => void;
+  bulkCreateTerminals: (terminals: PosTerminal[]) => void;
   deleteTerminal: (id: string) => void;
   updateProject: (project: Project) => void;
   createProject: (project: Project) => void;
   deleteProject: (id: string) => void;
+  updateUser: (user: User) => void;
+  createUser: (user: User) => void;
+  deleteUser: (id: string) => void;
+  bulkUpdateUsersWithCards: (userCardMap: { userId: string; cardId: string }[]) => void;
 }
 
 const ManagementContext = createContext<ManagementContextType | undefined>(undefined);
@@ -72,6 +78,7 @@ const initialProjects: Project[] = [
     id: "p1",
     name: "Global Rewards Program",
     description: "Multi-national reward point card system for frequent travelers.",
+    country: "Switzerland",
     status: "Active",
     totalCards: 5000,
     deployedCards: 3420,
@@ -81,6 +88,7 @@ const initialProjects: Project[] = [
     id: "p2",
     name: "Eco-Transit System",
     description: "Sustainable public transport payment solution using RFID cards.",
+    country: "Netherlands",
     status: "Active",
     totalCards: 10000,
     deployedCards: 8200,
@@ -90,6 +98,7 @@ const initialProjects: Project[] = [
     id: "p3",
     name: "National Student Grant",
     description: "Financial aid distribution for university students across the country.",
+    country: "Ethiopia",
     status: "Draft",
     totalCards: 2000,
     deployedCards: 0,
@@ -110,7 +119,16 @@ const initialPOS: PosTerminal[] = [
     totalTransactions: 1242,
     operatorIds: ["op1", "op2"],
     projectId: "p1",
-    projectName: "Global Rewards Program"
+    projectName: "Global Rewards Program",
+    bullRegistration: {
+      enabled: true,
+      bullId: "BULL-990-AX",
+      firmwareVersion: "v2.4.1",
+      protocol: "MQTT",
+      environment: "Production",
+      heartbeatInterval: 60,
+      lastSync: "2024-03-20 12:00"
+    }
   },
   { 
     id: "pos2", 
@@ -124,7 +142,16 @@ const initialPOS: PosTerminal[] = [
     totalTransactions: 8432,
     operatorIds: [],
     projectId: "p2",
-    projectName: "Eco-Transit System"
+    projectName: "Eco-Transit System",
+    bullRegistration: {
+      enabled: true,
+      bullId: "BULL-220-BZ",
+      firmwareVersion: "v2.3.9",
+      protocol: "WSS",
+      environment: "Staging",
+      heartbeatInterval: 30,
+      lastSync: "2024-03-20 14:10"
+    }
   },
   { 
     id: "pos3", 
@@ -154,16 +181,25 @@ const initialPOS: PosTerminal[] = [
   },
 ];
 
+const initialUsers: User[] = [
+  { id: "u1", name: "Alice Thompson", email: "alice.t@example.com", phone: "+1 555-0101", cardId: "4532-****-9012", status: "Active", joinedAt: "2024-01-20" },
+  { id: "u2", name: "Bob Richards", email: "bob.r@example.com", phone: "+1 555-0102", cardId: "5105-****-4422", status: "Active", joinedAt: "2024-02-15" },
+  { id: "u3", name: "Charlie Davis", email: "c.davis@example.com", phone: "+1 555-0103", cardId: undefined, status: "Pending", joinedAt: "2024-03-10" },
+  { id: "u4", name: "Diana Prince", email: "d.prince@example.com", phone: "+1 555-0104", cardId: "4000-****-1111", status: "Active", joinedAt: "2023-12-05" },
+  { id: "u5", name: "Ethan Hunt", email: "e.hunt@example.com", phone: "+1 555-0105", cardId: "4111-****-2222", status: "Active", joinedAt: "2024-03-01" },
+  { id: "u6", name: "Fiona Gallagher", email: "f.gallagher@example.com", phone: "+1 555-0106", cardId: undefined, status: "Pending", joinedAt: "2024-03-12" },
+];
+
 export const ManagementProvider = ({ children }: { children: ReactNode }) => {
   const [operators, setOperators] = useState<Operator[]>(initialMockOperators);
   const [terminals, setTerminals] = useState<PosTerminal[]>(initialPOS);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [users, setUsers] = useState<User[]>(initialUsers);
 
   const linkOperatorsToPos = (operatorIds: string[], posId: string, replace: boolean = false) => {
     const terminal = terminals.find(t => t.id === posId);
     if (!terminal) return;
 
-    // Determine the final list of operator IDs for this terminal
     let finalOperatorIds: string[];
     if (replace) {
       finalOperatorIds = operatorIds;
@@ -171,12 +207,10 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
       finalOperatorIds = Array.from(new Set([...(terminal.operatorIds || []), ...operatorIds]));
     }
 
-    // Update ALL terminals to ensure these operators are ONLY assigned to this POS
     setTerminals(prev => prev.map(t => {
       if (t.id === posId) {
         return { ...t, operatorIds: finalOperatorIds };
       } else {
-        // Remove these operator IDs from any other terminal they might have been assigned to
         return { 
           ...t, 
           operatorIds: (t.operatorIds || []).filter(id => !operatorIds.includes(id)) 
@@ -184,17 +218,13 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
       }
     }));
 
-    // Update operators status
     setOperators(prev => prev.map(op => {
-      // 1. If operator is in the new list for this POS, update their reference
       if (finalOperatorIds.includes(op.id)) {
         return { ...op, posId, posName: terminal.name };
       }
-      // 2. If operator was assigned to this POS but IS NOT in the new list, clear their reference
       if (op.posId === posId && !finalOperatorIds.includes(op.id)) {
         return { ...op, posId: undefined, posName: undefined };
       }
-      // 3. Keep as is
       return op;
     }));
   };
@@ -221,7 +251,6 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteOperator = (id: string) => {
     setOperators(prev => prev.filter(o => o.id !== id));
-    // Remove operator from all terminals
     setTerminals(prev => prev.map(t => ({
       ...t,
       operatorIds: (t.operatorIds || []).filter(opId => opId !== id)
@@ -236,9 +265,12 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
     setTerminals(prev => [terminal, ...prev]);
   };
 
+  const bulkCreateTerminals = (newTerminals: PosTerminal[]) => {
+    setTerminals(prev => [...newTerminals, ...prev]);
+  };
+
   const deleteTerminal = (id: string) => {
     setTerminals(prev => prev.filter(t => t.id !== id));
-    // Clear POS reference from operators
     setOperators(prev => prev.map(op => 
       op.posId === id ? { ...op, posId: undefined, posName: undefined } : op
     ));
@@ -246,7 +278,6 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
 
   const updateProject = (project: Project) => {
     setProjects(prev => prev.map(p => p.id === project.id ? project : p));
-    // Update terminal project names if name changed
     setTerminals(prev => prev.map(t => 
       t.projectId === project.id ? { ...t, projectName: project.name } : t
     ));
@@ -258,10 +289,31 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteProject = (id: string) => {
     setProjects(prev => prev.filter(p => p.id !== id));
-    // Remove project reference from terminals
     setTerminals(prev => prev.map(t => 
       t.projectId === id ? { ...t, projectId: undefined, projectName: undefined } : t
     ));
+  };
+
+  const updateUser = (user: User) => {
+    setUsers(prev => prev.map(u => u.id === user.id ? user : u));
+  };
+
+  const createUser = (user: User) => {
+    setUsers(prev => [user, ...prev]);
+  };
+
+  const deleteUser = (id: string) => {
+    setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  const bulkUpdateUsersWithCards = (userCardMap: { userId: string; cardId: string }[]) => {
+    setUsers(prev => prev.map(user => {
+      const mapping = userCardMap.find(m => m.userId === user.id);
+      if (mapping) {
+        return { ...user, cardId: mapping.cardId, status: "Active" };
+      }
+      return user;
+    }));
   };
 
   return (
@@ -269,6 +321,7 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
       operators,
       terminals,
       projects,
+      users,
       linkOperatorsToPos,
       unlinkOperatorFromPos,
       updateOperator,
@@ -276,10 +329,15 @@ export const ManagementProvider = ({ children }: { children: ReactNode }) => {
       deleteOperator,
       updateTerminal,
       createTerminal,
+      bulkCreateTerminals,
       deleteTerminal,
       updateProject,
       createProject,
-      deleteProject
+      deleteProject,
+      updateUser,
+      createUser,
+      deleteUser,
+      bulkUpdateUsersWithCards
     }}>
       {children}
     </ManagementContext.Provider>

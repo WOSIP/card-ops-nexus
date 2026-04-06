@@ -14,7 +14,9 @@ import {
   RefreshCw,
   Eye,
   UserPlus,
-  Zap
+  Zap,
+  Layers,
+  Upload
 } from "lucide-react";
 import { 
   Table, 
@@ -41,6 +43,9 @@ import { Card as CardType, CardStatus } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { IssueCardDialog } from "./cards/IssueCardDialog";
 import { EditCardDialog } from "./cards/EditCardDialog";
+import { BulkIssueCardDialog } from "./cards/BulkIssueCardDialog";
+import { ImportCardsDialog } from "./cards/ImportCardsDialog";
+import { useManagement } from "@/context/ManagementContext";
 
 const initialCards: CardType[] = [
   { id: "1", cardNumber: "4532 **** **** 9012", projectId: "p1", projectName: "Global Rewards", status: "Active", userName: "Sarah Connor", issuedAt: "2024-01-15" },
@@ -62,9 +67,12 @@ export const StatusBadge = ({ status }: { status: CardStatus }) => {
 };
 
 export const CardManager = () => {
+  const { bulkUpdateUsersWithCards } = useManagement();
   const [cards, setCards] = useState<CardType[]>(initialCards);
   const [searchTerm, setSearchTerm] = useState("");
   const [isIssueOpen, setIsIssueOpen] = useState(false);
+  const [isBulkIssueOpen, setIsBulkIssueOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
 
@@ -84,6 +92,28 @@ export const CardManager = () => {
     toast.success(`Card ${newCard.cardNumber} issued to inventory`, {
       description: "The card is now ready to be linked to a user."
     });
+  };
+
+  const handleBulkIssue = (newCards: CardType[]) => {
+    setCards([...newCards, ...cards]);
+    
+    const linkedUsers = newCards
+      .filter(c => c.userId && c.userId !== "")
+      .map(c => ({ userId: c.userId!, cardId: c.cardNumber }));
+    
+    if (linkedUsers.length > 0) {
+      bulkUpdateUsersWithCards(linkedUsers);
+    }
+
+    setIsBulkIssueOpen(false);
+    toast.success(`Batch issuance successful`, {
+      description: `${newCards.length} cards have been processed and added to inventory.`
+    });
+  };
+
+  const handleImportCards = (newCards: CardType[]) => {
+    setCards([...newCards, ...cards]);
+    setIsImportOpen(false);
   };
 
   const handleUpdateCard = (updatedCard: CardType) => {
@@ -118,7 +148,6 @@ export const CardManager = () => {
 
   const handleBatchAction = (action: string) => {
     if (action === "Activate") {
-      // Only activate cards that have users linked
       let count = 0;
       setCards(cards.map(c => {
         if (c.userName && c.userName.trim() !== "") {
@@ -156,18 +185,34 @@ export const CardManager = () => {
         >
           <Button 
             variant="outline" 
-            className="gap-2 border-border/40 hover:bg-white/5 h-11 px-5 rounded-xl font-bold transition-all backdrop-blur-sm"
+            className="gap-2 border-border/40 hover:bg-white/5 h-11 px-5 rounded-xl font-bold transition-all backdrop-blur-sm hidden md:flex"
             onClick={() => toast.info("Exporting CSV...")}
           >
             <Download size={18} />
             Export
           </Button>
           <Button 
+            variant="outline" 
+            className="gap-2 border-border/40 hover:bg-white/5 h-11 px-5 rounded-xl font-bold transition-all backdrop-blur-sm hidden md:flex"
+            onClick={() => setIsImportOpen(true)}
+          >
+            <Upload size={18} />
+            Import
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => setIsBulkIssueOpen(true)}
+            className="gap-2 border-primary/40 text-primary hover:bg-primary/5 h-11 px-6 rounded-xl font-bold transition-all"
+          >
+            <Layers size={18} />
+            Bulk Issue
+          </Button>
+          <Button 
             onClick={() => setIsIssueOpen(true)}
             className="gap-2 shadow-xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-6 rounded-xl font-bold transition-all hover:scale-105 active:scale-95"
           >
             <Plus size={18} />
-            Issue New Card
+            Issue Card
           </Button>
         </motion.div>
       </div>
@@ -363,6 +408,18 @@ export const CardManager = () => {
         isOpen={isIssueOpen} 
         onClose={() => setIsIssueOpen(false)} 
         onIssue={handleIssueCard}
+      />
+
+      <BulkIssueCardDialog
+        isOpen={isBulkIssueOpen}
+        onClose={() => setIsBulkIssueOpen(false)}
+        onBulkIssue={handleBulkIssue}
+      />
+
+      <ImportCardsDialog
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImport={handleImportCards}
       />
 
       <EditCardDialog 

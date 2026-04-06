@@ -28,12 +28,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Project } from "@/types";
-import { Sparkles, Layout } from "lucide-react";
+import { Sparkles, Layout, Globe, Check, ChevronsUpDown } from "lucide-react";
+import { COUNTRIES } from "@/constants/countries";
+import { cn } from "@/lib/utils";
 
 const projectSchema = z.object({
   name: z.string().min(3, "Project name must be at least 3 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
+  country: z.string().min(1, "Please select a country"),
   status: z.enum(["Active", "Completed", "Draft"]),
   totalCards: z.number().min(1, "Total cards must be at least 1"),
   startDate: z.string().min(1, "Start date is required"),
@@ -53,6 +69,7 @@ export const CreateProjectDialog = ({ isOpen, onClose, onCreate }: CreateProject
     defaultValues: {
       name: "",
       description: "",
+      country: "",
       status: "Draft",
       totalCards: 1000,
       startDate: new Date().toISOString().split('T')[0],
@@ -64,6 +81,7 @@ export const CreateProjectDialog = ({ isOpen, onClose, onCreate }: CreateProject
       id: Math.random().toString(36).substr(2, 9),
       name: data.name,
       description: data.description,
+      country: data.country,
       status: data.status,
       totalCards: data.totalCards,
       deployedCards: 0,
@@ -121,6 +139,69 @@ export const CreateProjectDialog = ({ isOpen, onClose, onCreate }: CreateProject
                           {...field} 
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 mb-2">
+                        <Globe size={12} className="text-primary" />
+                        Target Country
+                      </FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                "h-11 bg-white/5 border-border/40 rounded-xl justify-between px-4 font-medium",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value
+                                ? COUNTRIES.find((country) => country === field.value)
+                                : "Select country..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 text-primary" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[calc(600px-64px)] p-0 bg-card/95 backdrop-blur-2xl border-border/40 shadow-2xl rounded-xl z-50">
+                          <Command className="bg-transparent">
+                            <CommandInput placeholder="Search country..." className="h-12 border-none focus:ring-0 font-medium" />
+                            <CommandList className="max-h-[300px] scrollbar-thin scrollbar-thumb-white/10">
+                              <CommandEmpty className="py-6 text-center text-sm font-medium text-muted-foreground">No country found.</CommandEmpty>
+                              <CommandGroup>
+                                {COUNTRIES.map((country) => (
+                                  <CommandItem
+                                    value={country}
+                                    key={country}
+                                    onSelect={() => {
+                                      form.setValue("country", country);
+                                    }}
+                                    className="cursor-pointer py-3 px-4 font-bold flex items-center justify-between hover:bg-primary/10 data-[selected=true]:bg-primary/20 transition-colors"
+                                  >
+                                    {country}
+                                    <Check
+                                      className={cn(
+                                        "h-4 w-4 text-primary transition-opacity",
+                                        country === field.value ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}

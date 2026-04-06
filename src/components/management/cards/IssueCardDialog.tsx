@@ -30,10 +30,11 @@ import {
 import { Card as CardType } from "@/types";
 import { motion } from "framer-motion";
 import { CreditCard, Sparkles } from "lucide-react";
+import { useManagement } from "@/context/ManagementContext";
 
 const issueSchema = z.object({
   cardNumber: z.string().min(16, "Card number must be 16 digits").max(19),
-  projectName: z.string().min(1, "Please select a project"),
+  projectId: z.string().min(1, "Please select a project"),
 });
 
 type IssueFormValues = z.infer<typeof issueSchema>;
@@ -44,28 +45,24 @@ interface IssueCardDialogProps {
   onIssue: (card: CardType) => void;
 }
 
-const mockProjects = [
-  { id: "p1", name: "Global Rewards" },
-  { id: "p2", name: "Eco-Friendly Transit" },
-  { id: "p3", name: "Student Grant" },
-  { id: "p4", name: "Corporate Travel" },
-];
-
 export const IssueCardDialog = ({ isOpen, onClose, onIssue }: IssueCardDialogProps) => {
+  const { projects } = useManagement();
+  
   const form = useForm<IssueFormValues>({
     resolver: zodResolver(issueSchema),
     defaultValues: {
       cardNumber: "",
-      projectName: "Global Rewards",
+      projectId: projects[0]?.id || "p1",
     },
   });
 
   const onSubmit = (data: IssueFormValues) => {
+    const project = projects.find(p => p.id === data.projectId);
     const newCard: CardType = {
       id: Math.random().toString(36).substr(2, 9),
       cardNumber: data.cardNumber.replace(/(\d{4})/g, "$1 ").trim(),
-      projectId: mockProjects.find(p => p.name === data.projectName)?.id || "p1",
-      projectName: data.projectName,
+      projectId: data.projectId,
+      projectName: project?.name || "Unknown Project",
       status: "Pending",
       userName: "", // Issued but not linked
       issuedAt: new Date().toISOString().split('T')[0],
@@ -117,7 +114,7 @@ export const IssueCardDialog = ({ isOpen, onClose, onIssue }: IssueCardDialogPro
 
               <FormField
                 control={form.control}
-                name="projectName"
+                name="projectId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Project</FormLabel>
@@ -128,8 +125,8 @@ export const IssueCardDialog = ({ isOpen, onClose, onIssue }: IssueCardDialogPro
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className="bg-card/95 backdrop-blur-xl border-border/40">
-                        {mockProjects.map(p => (
-                          <SelectItem key={p.id} value={p.name} className="font-bold cursor-pointer">{p.name}</SelectItem>
+                        {projects.map(p => (
+                          <SelectItem key={p.id} value={p.id} className="font-bold cursor-pointer">{p.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

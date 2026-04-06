@@ -13,7 +13,8 @@ import {
   ArrowUpDown,
   Link as LinkIcon,
   Monitor,
-  Phone
+  Phone,
+  Download
 } from "lucide-react";
 import { 
   Table, 
@@ -143,6 +144,54 @@ export const OperatorManager = ({ userRole = "Super Admin" }: OperatorManagerPro
     setIsLinkOpen(true);
   };
 
+  const exportToCSV = () => {
+    if (filteredOperators.length === 0) {
+      toast.error("No operators to export");
+      return;
+    }
+
+    const headers = [
+      "ID",
+      "Name",
+      "Email",
+      "Phone",
+      "Role",
+      "Status",
+      "Assigned POS",
+      "Cards Distributed"
+    ];
+
+    const csvData = filteredOperators.map(op => {
+      return [
+        op.id,
+        `"${(op.name || "").replace(/"/g, '""')}"`,
+        `"${(op.email || "").replace(/"/g, '""')}"`,
+        `"${(op.phone || "").replace(/"/g, '""')}"`,
+        op.role,
+        op.status,
+        `"${(op.posName || "No terminal linked").replace(/"/g, '""')}"`,
+        op.cardsDistributed
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...csvData].join(String.fromCharCode(10));
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const date = new Date().toISOString().split('T')[0];
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `operators-list-${date}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Operators list exported successfully", {
+      description: `Exported ${filteredOperators.length} operators to CSV.`,
+    });
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -161,7 +210,16 @@ export const OperatorManager = ({ userRole = "Super Admin" }: OperatorManagerPro
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
+          className="flex items-center gap-3"
         >
+          <Button 
+            variant="outline" 
+            className="gap-2 border-border/40 hover:bg-white/5 h-12 px-6 rounded-xl flex font-bold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-black/5"
+            onClick={exportToCSV}
+          >
+            <Download size={20} className="text-primary" />
+            Export List
+          </Button>
           <Button 
             onClick={() => setIsCreateOpen(true)}
             className="gap-2 shadow-xl shadow-primary/30 h-12 px-6 rounded-xl font-bold bg-primary hover:scale-105 transition-transform"

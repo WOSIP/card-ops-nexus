@@ -12,7 +12,9 @@ import {
   List,
   Monitor,
   Eye,
-  ArrowUpRight
+  ArrowUpRight,
+  Globe,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -56,7 +58,8 @@ export const ProjectManager = () => {
     const term = searchTerm.toLowerCase();
     return projects.filter(p => 
       p.name.toLowerCase().includes(term) || 
-      p.description.toLowerCase().includes(term)
+      p.description.toLowerCase().includes(term) ||
+      (p.country && p.country.toLowerCase().includes(term))
     );
   }, [projects, searchTerm]);
 
@@ -109,6 +112,61 @@ export const ProjectManager = () => {
     return terminals.filter(t => t.projectId === projectId).length;
   };
 
+  const exportToCSV = () => {
+    if (filteredProjects.length === 0) {
+      toast.error("No projects to export");
+      return;
+    }
+
+    const headers = [
+      "ID",
+      "Project Name",
+      "Description",
+      "Country",
+      "Status",
+      "Total Cards",
+      "Deployed Cards",
+      "Velocity (%)",
+      "Start Date",
+      "Terminals Count"
+    ];
+
+    const csvData = filteredProjects.map(project => {
+      const posCount = getPosCount(project.id);
+      const velocity = Math.round((project.deployedCards / (project.totalCards || 1)) * 100);
+
+      return [
+        project.id,
+        `"${(project.name || "").replace(/"/g, '""')}"`,
+        `"${(project.description || "").replace(/"/g, '""')}"`,
+        `"${(project.country || "").replace(/"/g, '""')}"`,
+        project.status,
+        project.totalCards,
+        project.deployedCards,
+        `${velocity}%`,
+        project.startDate,
+        posCount
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...csvData].join(String.fromCharCode(10));
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const date = new Date().toISOString().split('T')[0];
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `projects-list-${date}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Projects list exported successfully", {
+      description: `Exported ${filteredProjects.length} projects to CSV.`,
+    });
+  };
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -129,6 +187,14 @@ export const ProjectManager = () => {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
         >
+          <Button 
+            variant="outline" 
+            className="gap-2 border-border/40 hover:bg-white/5 h-11 px-5 rounded-xl flex font-bold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-black/5"
+            onClick={exportToCSV}
+          >
+            <Download size={18} className="text-primary" />
+            Export List
+          </Button>
           <Button 
             variant="outline" 
             size="icon"
@@ -153,7 +219,7 @@ export const ProjectManager = () => {
             <div className="relative w-full md:w-[450px] group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors w-4.5 h-4.5" />
               <Input 
-                placeholder="Search projects by name or description..." 
+                placeholder="Search projects by name, country or description..." 
                 className="pl-12 bg-white/5 border-border/40 focus:ring-2 focus:ring-primary/20 h-11 rounded-xl transition-all font-medium"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -208,9 +274,15 @@ export const ProjectManager = () => {
                               </DropdownMenu>
                             </div>
                           </div>
-                          <Badge className={`border-none font-bold mb-4 inline-block ${getStatusColor(project.status)}`}>
-                            {project.status}
-                          </Badge>
+                          <div className="flex items-center gap-2 mb-4">
+                            <Badge className={`border-none font-bold ${getStatusColor(project.status)}`}>
+                              {project.status}
+                            </Badge>
+                            <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                              <Globe size={12} className="text-primary" />
+                              {project.country}
+                            </span>
+                          </div>
                           <CardDescription className="line-clamp-2 min-h-[2.5rem] text-muted-foreground font-medium text-sm leading-relaxed">
                             {project.description}
                           </CardDescription>
@@ -251,11 +323,11 @@ export const ProjectManager = () => {
                 <TableHeader className="bg-white/[0.02]">
                   <TableRow className="hover:bg-transparent border-border/10">
                     <TableHead className="w-[300px] py-6 px-8 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Project Identity</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Country</TableHead>
                     <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</TableHead>
                     <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Velocity</TableHead>
                     <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Terminals</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Start Date</TableHead>
-                    <TableHead className="py-6 text-right px-8 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Actions</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right px-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -281,6 +353,12 @@ export const ProjectManager = () => {
                           </div>
                         </TableCell>
                         <TableCell>
+                          <div className="flex items-center gap-2 font-bold text-foreground">
+                            <Globe size={14} className="text-primary shrink-0" />
+                            {project.country}
+                          </div>
+                        </TableCell>
+                        <TableCell>
                           <Badge className={`border-none font-bold shadow-none ${getStatusColor(project.status)}`}>
                             {project.status}
                           </Badge>
@@ -293,9 +371,6 @@ export const ProjectManager = () => {
                         </TableCell>
                         <TableCell className="text-center font-bold text-foreground">
                           {getPosCount(project.id)}
-                        </TableCell>
-                        <TableCell className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-                          {project.startDate}
                         </TableCell>
                         <TableCell className="text-right px-8" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">

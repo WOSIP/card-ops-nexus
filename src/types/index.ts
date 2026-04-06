@@ -12,10 +12,22 @@ export interface Card {
   lastUsedAt?: string;
 }
 
+export type BulkIssueType = "Inventory" | "Users";
+
+export interface BulkIssueData {
+  type: BulkIssueType;
+  quantity: number;
+  projectId: string;
+  projectName: string;
+  baseNumber: string;
+  userIds?: string[];
+}
+
 export interface Project {
   id: string;
   name: string;
   description: string;
+  country: string;
   status: "Active" | "Completed" | "Draft";
   totalCards: number;
   deployedCards: number;
@@ -47,6 +59,16 @@ export interface User {
 
 export type POSStatus = "Online" | "Offline" | "Maintenance";
 
+export interface BullRegistration {
+  enabled: boolean;
+  bullId: string;
+  firmwareVersion: string;
+  protocol: "HTTPS" | "MQTT" | "WSS";
+  environment: "Production" | "Staging" | "Development";
+  heartbeatInterval: number;
+  lastSync?: string;
+}
+
 export interface PosTerminal {
   id: string;
   name: string;
@@ -60,6 +82,7 @@ export interface PosTerminal {
   operatorIds?: string[];
   projectId?: string;
   projectName?: string;
+  bullRegistration?: BullRegistration;
 }
 
 export interface Transaction {

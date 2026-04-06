@@ -40,18 +40,10 @@ import { toast } from "sonner";
 import { CreateUserDialog } from "./users/CreateUserDialog";
 import { EditUserDialog } from "./users/EditUserDialog";
 import { motion, AnimatePresence } from "framer-motion";
-
-const initialUsers: User[] = [
-  { id: "u1", name: "Alice Thompson", email: "alice.t@example.com", phone: "+1 555-0101", cardId: "4532-****-9012", status: "Active", joinedAt: "2024-01-20" },
-  { id: "u2", name: "Bob Richards", email: "bob.r@example.com", phone: "+1 555-0102", cardId: "5105-****-4422", status: "Active", joinedAt: "2024-02-15" },
-  { id: "u3", name: "Charlie Davis", email: "c.davis@example.com", phone: "+1 555-0103", cardId: undefined, status: "Pending", joinedAt: "2024-03-10" },
-  { id: "u4", name: "Diana Prince", email: "d.prince@example.com", phone: "+1 555-0104", cardId: "4000-****-1111", status: "Active", joinedAt: "2023-12-05" },
-  { id: "u5", name: "Ethan Hunt", email: "e.hunt@example.com", phone: "+1 555-0105", cardId: "4111-****-2222", status: "Active", joinedAt: "2024-03-01" },
-  { id: "u6", name: "Fiona Gallagher", email: "f.gallagher@example.com", phone: "+1 555-0106", cardId: undefined, status: "Pending", joinedAt: "2024-03-12" },
-];
+import { useManagement } from "@/context/ManagementContext";
 
 export const UserManager = () => {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const { users, createUser, updateUser, deleteUser } = useManagement();
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -73,13 +65,13 @@ export const UserManager = () => {
   }), [users]);
 
   const handleCreateUser = (newUser: User) => {
-    setUsers(prev => [newUser, ...prev]);
+    createUser(newUser);
     setIsCreateDialogOpen(false);
     toast.success(`User ${newUser.name} registered successfully`);
   };
 
   const handleUpdateUser = (updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    updateUser(updatedUser);
     setIsEditDialogOpen(false);
     setSelectedUser(null);
     toast.success(`User ${updatedUser.name} updated successfully`);
@@ -87,7 +79,7 @@ export const UserManager = () => {
 
   const handleDeleteUser = (userId: string) => {
     const userToDelete = users.find(u => u.id === userId);
-    setUsers(prev => prev.filter(u => u.id !== userId));
+    deleteUser(userId);
     toast.success(`User ${userToDelete?.name} removed from system`, {
       description: "This action can be undone from the activity logs.",
     });
